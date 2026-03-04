@@ -2,7 +2,7 @@
 
 import { UsersService } from "@/api/userApi";
 import { useAuth } from "@/app/components/authentication";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar } from "@/app/components/avatar";
 import { AUTH_COOKIE_NAME, clientAuthProvider } from "@/lib/authProvider";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

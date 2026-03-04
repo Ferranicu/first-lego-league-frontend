@@ -1,6 +1,6 @@
 import { RecordService } from "@/api/recordApi";
 import { UsersService } from "@/api/userApi";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/app/components/card";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { Record } from "@/types/record";
 import Link from "next/link";

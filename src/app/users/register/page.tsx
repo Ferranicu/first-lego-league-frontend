@@ -1,10 +1,10 @@
 "use client";
 
 import { UsersService } from "@/api/userApi";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/app/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/card";
+import { Input } from "@/app/components/input";
+import { Label } from "@/app/components/label";
 import { clientAuthProvider } from "@/lib/authProvider";
 import { User } from "@/types/user";
 import { useRouter } from "next/navigation";
