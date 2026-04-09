@@ -1,6 +1,16 @@
 import { APIRequestContext, expect } from "@playwright/test";
 import { TestUser } from "./test-data";
 
+function trimTrailingSlashes(value: string) {
+    let end = value.length;
+
+    while (end > 0 && value.charCodeAt(end - 1) === 47) {
+        end -= 1;
+    }
+
+    return value.slice(0, end);
+}
+
 export function getApiBaseUrl() {
     const baseUrl = process.env.E2E_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -8,7 +18,7 @@ export function getApiBaseUrl() {
         throw new Error("E2E_API_BASE_URL or NEXT_PUBLIC_API_BASE_URL must be set for Playwright API helpers.");
     }
 
-    return baseUrl.replace(/\/+$/, "");
+    return trimTrailingSlashes(baseUrl);
 }
 
 function getBasicAuthHeader(user: TestUser) {
