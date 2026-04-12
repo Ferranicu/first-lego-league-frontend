@@ -2,8 +2,8 @@ import { Resource } from "halfred";
 
 export interface TeamEntity {
     uri?: string;
-    name?: string;
     id?: string;
+    name?: string;
     city?: string;
     category?: string;
     educationalCenter?: string | null;
