@@ -28,10 +28,14 @@ export default async function AdministratorsPage() {
         currentUser = await service.getCurrentUser();
     } catch (e) {
         console.error("Failed to fetch current user:", e);
-        redirect("/");
+        error = parseErrorMessage(e);
     }
 
-    if (!isAdmin(currentUser)) {
+    if (!error && !currentUser) {
+        redirect("/login");
+    }
+
+    if (!error && !isAdmin(currentUser)) {
         redirect("/");
     }
 

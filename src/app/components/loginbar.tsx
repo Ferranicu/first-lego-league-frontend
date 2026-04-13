@@ -5,7 +5,6 @@ import { useAuth } from "@/app/components/authentication";
 import { Avatar, AvatarFallback } from "@/app/components/avatar";
 import { buttonVariants } from "@/app/components/button";
 import { AUTH_COOKIE_NAME, clientAuthProvider } from "@/lib/authProvider";
-import { cn } from "@/lib/utils";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { deleteCookie } from "cookies-next";
@@ -82,14 +81,6 @@ export default function Loginbar() {
             >
                 Login
             </Link>
-            { /* Registration is disabled because we currently do not allow external user registration.
-            <Link
-                href="/users/register"
-                className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-            >
-                Register
-            </Link>
-*/}
         </div>
     );
 }
