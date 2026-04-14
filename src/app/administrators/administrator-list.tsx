@@ -21,7 +21,6 @@ export default function AdministratorList({
   const [adminToDelete, setAdminToDelete] = useState<UserEntity | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Auto-dismiss success message after 5 seconds
   useEffect(() => {
     if (!successMessage) return;
     const timer = setTimeout(() => setSuccessMessage(null), 5000);
