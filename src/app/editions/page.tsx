@@ -3,10 +3,16 @@ import PageShell from "@/app/components/page-shell";
 import ErrorAlert from "@/app/components/error-alert";
 import EmptyState from "@/app/components/empty-state";
 import { serverAuthProvider } from "@/lib/authProvider";
+import { isAdmin } from "@/lib/authz";
 import { getEncodedResourceId } from "@/lib/halRoute";
 import { Edition } from "@/types/edition";
 import { parseErrorMessage } from "@/types/errors";
+import { User } from "@/types/user";
 import Link from "next/link";
+import { UsersService } from "@/api/userApi";
+import { buttonVariants } from "@/app/components/button";
+
+export const dynamic = "force-dynamic";
 
 function getEditionHref(edition: Edition) {
     const editionId = getEncodedResourceId(edition.uri);
@@ -51,6 +57,13 @@ function EditionCard({ edition }: Readonly<{ edition: Edition }>) {
 export default async function EditionsPage() {
     let editions: Edition[] = [];
     let error: string | null = null;
+    let currentUser: User | null = null;
+
+    try {
+        currentUser = await new UsersService(serverAuthProvider).getCurrentUser();
+    } catch (e) {
+        console.error("Failed to fetch current user:", e);
+    }
 
     try {
         const service = new EditionsService(serverAuthProvider);
@@ -65,6 +78,11 @@ export default async function EditionsPage() {
             eyebrow="Competition archive"
             title="Editions"
             description="Browse the yearly editions of FIRST LEGO League, including venue and season details."
+            heroAside={isAdmin(currentUser) ? (
+                <Link href="/editions/new" className={buttonVariants({ variant: "default", size: "sm" })}>
+                    + Create
+                </Link>
+            ) : undefined}
         >
             <div className="space-y-6">
                 <div className="space-y-3">
