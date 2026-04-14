@@ -1,12 +1,12 @@
-import halfred, { Resource } from "halfred";
 import {
     ApiError,
-    NotFoundError,
-    NetworkError,
     AuthenticationError,
+    NetworkError,
+    NotFoundError,
     ServerError,
     ValidationError,
 } from "@/types/errors";
+import halfred, { Resource } from "halfred";
 
 const PROD_API_BASE_URL = "https://api.firstlegoleague.win";
 type HalRequestBody = Record<string, unknown> | Resource;
