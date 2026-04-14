@@ -16,6 +16,8 @@ export default function Navbar() {
         { href: "/editions", label: "Editions" },
         { href: "/scientific-projects", label: "Scientific Projects" },
         { href: "/administrators", label: "Administrators", roles: ["ROLE_ADMIN"] }
+        { href: "/matches", label: "Matches" },
+        { href: "/scientific-projects", label: "Scientific Projects" }
     ];
 
     return (
@@ -58,7 +60,7 @@ export default function Navbar() {
                         })}
                 </div>
 
-                <div className="order-2 lg:order-3">
+                <div className="order-2 flex items-end gap-3 lg:order-3">
                     <Loginbar />
                 </div>
             </div>
