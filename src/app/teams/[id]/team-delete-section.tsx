@@ -13,6 +13,7 @@ export default function TeamDeleteSection({
   teamId,
   teamName,
 }: TeamDeleteSectionProps) {
+  // Keep the dialog toggle local so the server page only passes stable team data.
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (

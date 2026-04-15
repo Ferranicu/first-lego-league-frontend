@@ -43,6 +43,7 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
     let membersError: string | null = null;
 
     try {
+        // Enforce the admin-only delete action from the server-rendered page as well.
         currentUser = await new UsersService(serverAuthProvider).getCurrentUser();
     } catch (e) {
         console.error("Failed to fetch current user:", e);
@@ -59,6 +60,7 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
 
     if (team && !error) {
         try {
+            // Fetch related collections together once the team itself has loaded.
             [coaches, members] = await Promise.all([
                 service.getTeamCoach(id),
                 service.getTeamMembers(id)

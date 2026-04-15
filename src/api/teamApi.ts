@@ -5,6 +5,7 @@ import { deleteHal, fetchHalCollection, fetchHalResource } from "./halClient";
 
 function getSafeEncodedId(id: string): string {
     try {
+        // HAL links may already contain encoded ids, so normalize before reusing them.
         return encodeURIComponent(decodeURIComponent(id));
     } catch {
         return encodeURIComponent(id);
