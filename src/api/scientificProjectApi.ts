@@ -1,6 +1,5 @@
 import type { AuthStrategy } from "@/lib/authProvider";
 import { ScientificProject } from "@/types/scientificProject";
-import { Team } from "@/types/team";
 import { getHal, mergeHal, mergeHalArray, postHal, fetchHalResource } from "./halClient";
 
 export class ScientificProjectsService {

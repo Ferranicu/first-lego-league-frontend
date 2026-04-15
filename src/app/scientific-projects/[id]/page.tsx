@@ -1,12 +1,13 @@
 import { ScientificProjectsService } from "@/api/scientificProjectApi";
 import ErrorAlert from "@/app/components/error-alert";
 import PageShell from "@/app/components/page-shell";
+import { InfoRow } from "@/app/components/info-row";
+import { TeamCard } from "@/app/components/team-card";
 import { serverAuthProvider } from "@/lib/authProvider";
+import { fetchHalResource } from "@/api/halClient";
 import { NotFoundError, parseErrorMessage } from "@/types/errors";
 import { ScientificProject } from "@/types/scientificProject";
 import { Team } from "@/types/team";
-import Link from "next/link";
-import { fetchHalResource } from "@/api/halClient";
 
 export const dynamic = "force-dynamic";
 
@@ -21,49 +22,6 @@ function getProjectTitle(project: ScientificProject | null, id: string): string 
         return `Scientific Project ${decodedId}`;
     }
     return project.comments ? project.comments : `Scientific Project ${id}`;
-}
-
-function InfoRow({ label, value }: Readonly<{ label: string; value: string }>) {
-    return (
-        <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
-            <span className="min-w-36 text-sm font-medium text-foreground">{label}</span>
-            <span className="text-sm text-muted-foreground">{value}</span>
-        </div>
-    );
-}
-
-function TeamCard({ team }: Readonly<{ team: Team }>) {
-    const selfHref = team.link("self")?.href ?? team.uri;
-    const rawSegment = selfHref?.split(/[?#]/, 1)[0]?.split("/").filter(Boolean).at(-1);
-    const teamId = rawSegment
-        ? (() => { try { return encodeURIComponent(decodeURIComponent(rawSegment)); } catch { return encodeURIComponent(rawSegment); } })()
-        : null;
-
-    const cardContent = (
-        <div
-            className={`module-card flex flex-col gap-2 rounded-lg border border-border bg-card p-5 transition-colors${teamId ? " hover:bg-secondary/30" : ""}`}
-        >
-            <div className="page-eyebrow">Presenting team</div>
-            <p className="list-title">{team.name ?? team.id ?? "Unnamed team"}</p>
-            <div className="space-y-1">
-                {team.city && <p className="list-support">{team.city}</p>}
-                {team.category && (
-                    <span className="status-badge inline-block">{team.category}</span>
-                )}
-            </div>
-            {teamId && (
-                <p className="mt-1 text-xs font-medium text-accent-foreground underline-offset-2 hover:underline">
-                    View team details →
-                </p>
-            )}
-        </div>
-    );
-
-    if (teamId) {
-        return <Link href={`/teams/${teamId}`}>{cardContent}</Link>;
-    }
-
-    return cardContent;
 }
 
 export default async function ScientificProjectDetailPage(props: Readonly<ScientificProjectDetailPageProps>) {
@@ -104,7 +62,6 @@ export default async function ScientificProjectDetailPage(props: Readonly<Scient
 
             {!projectError && project && (
                 <div className="space-y-8">
-                    {/* Project details */}
                     <section aria-labelledby="project-info-heading">
                         <div className="mb-4 space-y-1">
                             <div className="page-eyebrow">Evaluation</div>
@@ -122,7 +79,6 @@ export default async function ScientificProjectDetailPage(props: Readonly<Scient
                         </div>
                     </section>
 
-                    {/* Team */}
                     <section aria-labelledby="team-heading">
                         <div className="mb-4 space-y-1">
                             <div className="page-eyebrow">Participant</div>
@@ -131,10 +87,9 @@ export default async function ScientificProjectDetailPage(props: Readonly<Scient
 
                         {teamError && <ErrorAlert message={teamError} />}
 
-                        {!teamError && team && <TeamCard team={team} />}
+                        {!teamError && team && <TeamCard team={team} label="Presenting team" />}
                     </section>
 
-                    {/* Evaluation room — placeholder */}
                     <section aria-labelledby="room-heading">
                         <div className="mb-4 space-y-1">
                             <div className="page-eyebrow">Venue</div>
