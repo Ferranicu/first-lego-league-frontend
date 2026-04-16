@@ -1,12 +1,16 @@
 import { MatchesService } from "@/api/matchesApi";
+import { UsersService } from "@/api/userApi";
+import { buttonVariants } from "@/app/components/button";
 import EmptyState from "@/app/components/empty-state";
 import ErrorAlert from "@/app/components/error-alert";
 import PageShell from "@/app/components/page-shell";
 import { serverAuthProvider } from "@/lib/authProvider";
+import { isAdmin } from "@/lib/authz";
 import { getEncodedResourceId } from "@/lib/halRoute";
 import { formatMatchTime } from "@/lib/matchUtils";
 import { parseErrorMessage } from "@/types/errors";
 import { Match } from "@/types/match";
+import { User } from "@/types/user";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +97,13 @@ function getFriendlyMatchesError(error: unknown) {
 export default async function MatchesPage() {
     let matches: Match[] = [];
     let error: string | null = null;
+    let currentUser: User | null = null;
+
+    try {
+        currentUser = await new UsersService(serverAuthProvider).getCurrentUser();
+    } catch (fetchError) {
+        console.error("Failed to fetch current user:", fetchError);
+    }
 
     try {
         const service = new MatchesService(serverAuthProvider);
@@ -121,6 +132,14 @@ export default async function MatchesPage() {
             eyebrow="Competition schedule"
             title="Matches"
             description="Browse the scheduled matches with timing details and participating teams."
+            heroAside={isAdmin(currentUser) ? (
+                <Link
+                    href="/matches/new"
+                    className={buttonVariants({ variant: "default", size: "sm" })}
+                >
+                    + Create
+                </Link>
+            ) : undefined}
         >
             <div className="space-y-6">
                 <div className="space-y-3">
