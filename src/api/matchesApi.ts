@@ -7,7 +7,7 @@ import type { HalPage } from "@/types/pagination";
 import { Referee } from "@/types/referee";
 import { Round } from "@/types/round";
 import { Team } from "@/types/team";
-import {API_BASE_URL,createHalResource,deleteHal,fetchHalCollection,fetchHalPagedCollection,fetchHalResource,postHal,} from "./halClient";
+import {API_BASE_URL,createHalResource,deleteHal,fetchHalCollection,fetchHalPagedCollection,fetchHalResource,patchHal,postHal,} from "./halClient";
 
 export type CreateMatchPayload = {
     startTime: string;
@@ -18,6 +18,8 @@ export type CreateMatchPayload = {
     teamB: string;
     referee: string;
 };
+
+export type UpdateMatchPayload = CreateMatchPayload;
 
 function getSafeMatchResultResourcePath(resourceUri: string) {
     let resourcePath = resourceUri;
@@ -110,6 +112,11 @@ export class MatchesService {
         );
     }
 
+    async getMatchReferee(id: string): Promise<Referee> {
+        const matchId = encodeURIComponent(id);
+        return fetchHalResource<Referee>(`/matches/${matchId}/referee`, this.authStrategy);
+    }
+
     async getRounds(): Promise<Round[]> {
         return fetchHalCollection<Round>(
             "/rounds?sort=number,asc&size=1000",
@@ -141,6 +148,11 @@ export class MatchesService {
             this.authStrategy,
             "match",
         );
+    }
+
+    async updateMatch(id: string, data: UpdateMatchPayload): Promise<void> {
+        const matchId = encodeURIComponent(id);
+        await patchHal(`/matches/${matchId}`, data, this.authStrategy);
     }
 
     async getMatchResults(matchUri: string): Promise<MatchResult[]> {

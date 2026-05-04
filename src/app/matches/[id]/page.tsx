@@ -3,6 +3,7 @@ import { API_BASE_URL } from "@/api/halClient";
 import { MatchesService } from "@/api/matchesApi";
 import { TeamsService } from "@/api/teamApi";
 import { UsersService } from "@/api/userApi";
+import { buttonVariants } from "@/app/components/button";
 import ErrorAlert from "@/app/components/error-alert";
 import PageShell from "@/app/components/page-shell";
 import { serverAuthProvider } from "@/lib/authProvider";
@@ -17,6 +18,7 @@ import { MatchResult } from "@/types/matchResult";
 import { Round } from "@/types/round";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
+import { Pencil } from "lucide-react";
 import Link from "next/link";
 import MatchDeleteSection from "./match-delete-section";
 import RecordResultForm from "./record-result-form";
@@ -268,7 +270,11 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
             {matchError && <ErrorAlert message={matchError} />}
 
             {!matchError && match && isAdmin(currentUser) && (
-                <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-3">
+                    <Link href={`/matches/${id}/edit`} className={buttonVariants({ variant: "secondary" })}>
+                        <Pencil aria-hidden="true" />
+                        Edit
+                    </Link>
                     <MatchDeleteSection matchId={id} />
                 </div>
             )}
