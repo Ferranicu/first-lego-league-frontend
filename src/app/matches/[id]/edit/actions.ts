@@ -1,6 +1,6 @@
 "use server";
 
-import { MatchesService, UpdateMatchPayload } from "@/api/matchesApi";
+import { CreateMatchPayload, MatchesService } from "@/api/matchesApi";
 import { UsersService } from "@/api/userApi";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin } from "@/lib/authz";
@@ -11,7 +11,7 @@ type UpdateMatchResult =
     | { ok: true; destination: string }
     | { ok: false; error: string };
 
-export async function updateMatch(matchId: string, data: UpdateMatchPayload): Promise<UpdateMatchResult> {
+export async function updateMatch(matchId: string, data: CreateMatchPayload): Promise<UpdateMatchResult> {
     try {
         const auth = await serverAuthProvider.getAuth();
         if (!auth) {

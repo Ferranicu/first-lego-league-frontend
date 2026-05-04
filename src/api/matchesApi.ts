@@ -19,8 +19,6 @@ export type CreateMatchPayload = {
     referee: string;
 };
 
-export type UpdateMatchPayload = CreateMatchPayload;
-
 function getSafeMatchResultResourcePath(resourceUri: string) {
     let resourcePath = resourceUri;
 
@@ -150,7 +148,7 @@ export class MatchesService {
         );
     }
 
-    async updateMatch(id: string, data: UpdateMatchPayload): Promise<void> {
+    async updateMatch(id: string, data: CreateMatchPayload): Promise<void> {
         const matchId = encodeURIComponent(id);
         await patchHal(`/matches/${matchId}`, data, this.authStrategy);
     }

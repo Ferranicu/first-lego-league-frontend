@@ -12,7 +12,6 @@ import { Match } from "@/types/match";
 import { Referee } from "@/types/referee";
 import { Round } from "@/types/round";
 import { Team } from "@/types/team";
-import { User } from "@/types/user";
 import { redirect } from "next/navigation";
 import EditMatchForm from "./form";
 
@@ -23,6 +22,19 @@ type Option = {
 
 type MatchEditPageProps = {
     readonly params: Promise<{ id: string }>;
+};
+
+type MatchEditData = {
+    match: Match;
+    roundOptions: Option[];
+    competitionTableOptions: Option[];
+    refereeOptions: Option[];
+    teamOptions: Option[];
+    selectedRound: Option | null;
+    selectedCompetitionTable: Option | null;
+    selectedReferee: Option | null;
+    selectedTeamA: Option | null;
+    selectedTeamB: Option | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -136,127 +148,150 @@ function getMatchTitle(match: Match | null, id: string) {
     return match.id ? `Match ${match.id}` : `Match ${id}`;
 }
 
-export default async function EditMatchPage({ params }: Readonly<MatchEditPageProps>) {
-    const { id } = await params;
+async function getAdminAuthorizationError() {
     const auth = await serverAuthProvider.getAuth();
     if (!auth) redirect("/login");
 
-    let currentUser: User | null = null;
-    let error: string | null = null;
-    let match: Match | null = null;
-    let roundOptions: Option[] = [];
-    let competitionTableOptions: Option[] = [];
-    let refereeOptions: Option[] = [];
-    let teamOptions: Option[] = [];
-
     try {
-        currentUser = await new UsersService(serverAuthProvider).getCurrentUser();
+        const currentUser = await new UsersService(serverAuthProvider).getCurrentUser();
+        if (!currentUser) {
+            redirect("/login");
+        }
+
+        if (!isAdmin(currentUser)) {
+            redirect("/");
+        }
     } catch (e) {
         if (e instanceof AuthenticationError) {
             redirect("/login");
         }
 
-        error = parseErrorMessage(e);
+        return parseErrorMessage(e);
     }
 
-    if (!error && !currentUser) {
-        redirect("/login");
-    }
+    return null;
+}
 
-    if (!error && !isAdmin(currentUser)) {
-        redirect("/");
-    }
+async function getOptionalRelation<T>(promise: Promise<T>) {
+    try {
+        return await promise;
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return null;
+        }
 
-    let selectedRound: Option | null = null;
-    let selectedCompetitionTable: Option | null = null;
-    let selectedReferee: Option | null = null;
-    let selectedTeamA: Option | null = null;
-    let selectedTeamB: Option | null = null;
+        throw error;
+    }
+}
+
+async function fetchMatchEditData(id: string): Promise<MatchEditData> {
+    const matchesService = new MatchesService(serverAuthProvider);
+    const teamsService = new TeamsService(serverAuthProvider);
+
+    const [
+        match,
+        rounds,
+        competitionTables,
+        referees,
+        teams,
+        matchRound,
+        matchCompetitionTable,
+        matchReferee,
+        matchTeamA,
+        matchTeamB,
+    ] = await Promise.all([
+        matchesService.getMatchById(id),
+        matchesService.getRounds(),
+        matchesService.getCompetitionTables(),
+        matchesService.getReferees(),
+        teamsService.getTeams(),
+        getOptionalRelation(matchesService.getMatchRound(id)),
+        getOptionalRelation(matchesService.getMatchCompetitionTable(id)),
+        getOptionalRelation(matchesService.getMatchReferee(id)),
+        getOptionalRelation(matchesService.getMatchTeamA(id)),
+        getOptionalRelation(matchesService.getMatchTeamB(id)),
+    ]);
+
+    const selectedRound = matchRound ? getRoundOption(matchRound) : null;
+    const selectedCompetitionTable = matchCompetitionTable
+        ? getCompetitionTableOption(matchCompetitionTable)
+        : null;
+    const selectedReferee = matchReferee ? getRefereeOption(matchReferee) : null;
+    const selectedTeamA = matchTeamA ? getTeamOption(matchTeamA) : null;
+    const selectedTeamB = matchTeamB ? getTeamOption(matchTeamB) : null;
+    const teamOptions = sortOptions(compactOptions(teams.map(getTeamOption)));
+
+    return {
+        match,
+        roundOptions: ensureSelectedOption(
+            sortOptions(compactOptions(rounds.map(getRoundOption))),
+            selectedRound,
+        ),
+        competitionTableOptions: ensureSelectedOption(
+            sortOptions(compactOptions(competitionTables.map(getCompetitionTableOption))),
+            selectedCompetitionTable,
+        ),
+        refereeOptions: ensureSelectedOption(
+            sortOptions(compactOptions(referees.map(getRefereeOption))),
+            selectedReferee,
+        ),
+        teamOptions: ensureSelectedOption(ensureSelectedOption(teamOptions, selectedTeamA), selectedTeamB),
+        selectedRound,
+        selectedCompetitionTable,
+        selectedReferee,
+        selectedTeamA,
+        selectedTeamB,
+    };
+}
+
+function getInitialValues(data: MatchEditData) {
+    return {
+        startTime: toTimeInputValue(data.match.startTime),
+        endTime: toTimeInputValue(data.match.endTime),
+        round: data.selectedRound?.value ?? "",
+        competitionTable: data.selectedCompetitionTable?.value ?? "",
+        teamA: data.selectedTeamA?.value ?? "",
+        teamB: data.selectedTeamB?.value ?? "",
+        referee: data.selectedReferee?.value ?? "",
+    };
+}
+
+function getMatchEditError(error: unknown) {
+    return error instanceof NotFoundError
+        ? "This match does not exist."
+        : parseErrorMessage(error);
+}
+
+export default async function EditMatchPage({ params }: Readonly<MatchEditPageProps>) {
+    const { id } = await params;
+    const authorizationError = await getAdminAuthorizationError();
+    let data: MatchEditData | null = null;
+    let error = authorizationError;
 
     if (!error) {
         try {
-            const matchesService = new MatchesService(serverAuthProvider);
-            const teamsService = new TeamsService(serverAuthProvider);
-
-            const [
-                resolvedMatch,
-                rounds,
-                competitionTables,
-                referees,
-                teams,
-                matchRound,
-                matchCompetitionTable,
-                matchReferee,
-                matchTeamA,
-                matchTeamB,
-            ] = await Promise.all([
-                matchesService.getMatchById(id),
-                matchesService.getRounds(),
-                matchesService.getCompetitionTables(),
-                matchesService.getReferees(),
-                teamsService.getTeams(),
-                matchesService.getMatchRound(id).catch(() => null),
-                matchesService.getMatchCompetitionTable(id).catch(() => null),
-                matchesService.getMatchReferee(id).catch(() => null),
-                matchesService.getMatchTeamA(id).catch(() => null),
-                matchesService.getMatchTeamB(id).catch(() => null),
-            ]);
-
-            match = resolvedMatch;
-            roundOptions = sortOptions(compactOptions(rounds.map(getRoundOption)));
-            competitionTableOptions = sortOptions(
-                compactOptions(competitionTables.map(getCompetitionTableOption))
-            );
-            refereeOptions = sortOptions(compactOptions(referees.map(getRefereeOption)));
-            teamOptions = sortOptions(compactOptions(teams.map(getTeamOption)));
-
-            selectedRound = matchRound ? getRoundOption(matchRound) : null;
-            selectedCompetitionTable = matchCompetitionTable
-                ? getCompetitionTableOption(matchCompetitionTable)
-                : null;
-            selectedReferee = matchReferee ? getRefereeOption(matchReferee) : null;
-            selectedTeamA = matchTeamA ? getTeamOption(matchTeamA) : null;
-            selectedTeamB = matchTeamB ? getTeamOption(matchTeamB) : null;
-
-            roundOptions = ensureSelectedOption(roundOptions, selectedRound);
-            competitionTableOptions = ensureSelectedOption(
-                competitionTableOptions,
-                selectedCompetitionTable,
-            );
-            refereeOptions = ensureSelectedOption(refereeOptions, selectedReferee);
-            teamOptions = ensureSelectedOption(ensureSelectedOption(teamOptions, selectedTeamA), selectedTeamB);
+            data = await fetchMatchEditData(id);
         } catch (e) {
-            error =
-                e instanceof NotFoundError
-                    ? "This match does not exist."
-                    : parseErrorMessage(e);
+            error = getMatchEditError(e);
         }
     }
 
     return (
         <PageShell
             eyebrow="Competition schedule"
-            title={`Edit ${getMatchTitle(match, id)}`}
+            title={`Edit ${getMatchTitle(data?.match ?? null, id)}`}
             description="Update the scheduled time, round, table, teams, and referee for this match."
         >
-            {error || !match ? (
+            {error || !data ? (
                 <ErrorAlert message={error ?? "This match could not be loaded."} />
             ) : (
                 <EditMatchForm
                     matchId={id}
-                    initialValues={{
-                        startTime: toTimeInputValue(match.startTime),
-                        endTime: toTimeInputValue(match.endTime),
-                        round: selectedRound?.value ?? "",
-                        competitionTable: selectedCompetitionTable?.value ?? "",
-                        teamA: selectedTeamA?.value ?? "",
-                        teamB: selectedTeamB?.value ?? "",
-                        referee: selectedReferee?.value ?? "",
-                    }}
-                    roundOptions={roundOptions}
-                    competitionTableOptions={competitionTableOptions}
-                    refereeOptions={refereeOptions}
-                    teamOptions={teamOptions}
+                    initialValues={getInitialValues(data)}
+                    roundOptions={data.roundOptions}
+                    competitionTableOptions={data.competitionTableOptions}
+                    refereeOptions={data.refereeOptions}
+                    teamOptions={data.teamOptions}
                 />
             )}
         </PageShell>

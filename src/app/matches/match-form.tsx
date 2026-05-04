@@ -162,6 +162,8 @@ export default function MatchForm({
                         id="startTime"
                         type="time"
                         step={60}
+                        aria-invalid={!!errors.startTime}
+                        aria-describedby={errors.startTime ? "start-time-error" : undefined}
                         {...register("startTime", {
                             required: "Start time is required",
                         })}
@@ -175,6 +177,8 @@ export default function MatchForm({
                         id="endTime"
                         type="time"
                         step={60}
+                        aria-invalid={!!errors.endTime}
+                        aria-describedby={errors.endTime ? "end-time-error" : undefined}
                         {...register("endTime", {
                             required: "End time is required",
                             validate: (value) => {
