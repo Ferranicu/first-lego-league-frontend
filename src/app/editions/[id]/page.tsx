@@ -4,29 +4,27 @@ import { LeaderboardService } from "@/api/leaderboardApi";
 import { MediaService } from "@/api/mediaApi";
 import { UsersService } from "@/api/userApi";
 import { buttonVariants } from "@/app/components/button";
-import ErrorAlert from "@/app/components/error-alert";
 import EmptyState from "@/app/components/empty-state";
-import EditionStateControls from "./edition-state-controls";
+import ErrorAlert from "@/app/components/error-alert";
 import LeaderboardTable from "@/app/components/leaderboard-table";
 import { MediaItem } from "@/app/components/media-gallery";
 import { MediaSection } from "@/app/components/media-section";
+import MediaUploadForm from "@/app/components/media-upload-form";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin } from "@/lib/authz";
 import { getEncodedResourceId } from "@/lib/halRoute";
+import { getTeamDisplayName } from "@/lib/teamUtils";
 import { Award } from "@/types/award";
 import { Edition } from "@/types/edition";
+import { NotFoundError, parseErrorMessage } from "@/types/errors";
 import type { LeaderboardItem } from "@/types/leaderboard";
 import { MediaContent } from "@/types/mediaContent";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
-import { parseErrorMessage, NotFoundError } from "@/types/errors";
-import { getAwardWinnerTeamUri, normalizeUri } from "@/lib/awardUtils";
 import Link from "next/link";
-import { getTeamDisplayName } from "@/lib/teamUtils";
-import MediaUploadForm from "@/app/components/media-upload-form";
 import { redirect } from "next/navigation";
 import DeleteEditionButton from "./delete-edition-button";
-import AwardSection from "./_award-section";
+import EditionStateControls from "./edition-state-controls";
 
 
 interface EditionDetailPageProps {
@@ -111,35 +109,6 @@ function toMediaItem(content: MediaContent, editionUri: string | null | undefine
     };
 }
 
-function toAwardCard(award: Award): AwardCard {
-    return {
-        resourceUri: award.uri ?? award.link("self")?.href ?? "",
-        name: award.name,
-        title: award.title,
-        category: award.category,
-        edition: award.edition,
-        winnerTeam: award.winnerTeam ?? award.link("winnerTeam")?.href ?? award.link("winner")?.href,
-    };
-}
-
-function getAwardsByTeamUri(awards: Award[]): Map<string, AwardCard[]> {
-    const awardsByTeamUri = new Map<string, AwardCard[]>();
-
-    for (const award of awards) {
-        const teamUri = normalizeUri(getAwardWinnerTeamUri(award));
-        if (!teamUri) {
-            continue;
-        }
-
-        const awardCard = toAwardCard(award);
-        const existingAwards = awardsByTeamUri.get(teamUri) ?? [];
-        existingAwards.push(awardCard);
-        awardsByTeamUri.set(teamUri, existingAwards);
-    }
-
-    return awardsByTeamUri;
-}
-
 export default async function EditionDetailPage(props: Readonly<EditionDetailPageProps>) {
     const { id } = await props.params;
 
@@ -218,8 +187,6 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
         }
     }
 
-    const awardsByTeamUri = getAwardsByTeamUri(awards);
-
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
             <div className="w-full max-w-3xl px-4 py-10">
@@ -290,9 +257,6 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                                 <ul className="w-full space-y-3">
                                     {teams.map((team, index) => {
                                         const href = getTeamHref(team);
-                                        const teamUri = normalizeUri(getTeamUri(team));
-                                        const teamAwards = teamUri ? awardsByTeamUri.get(teamUri) ?? [] : [];
-
                                         return (
                                             <li
                                                 key={team.uri ?? index}
@@ -358,6 +322,12 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                             <h2 className="mt-8 mb-4 text-xl font-semibold text-foreground">
                                 Final Classification
                             </h2>
+
+                            <div className="mb-4">
+                                <Link href={`/editions/${id}/project-ranking`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                                    Scientific Project Ranking
+                                </Link>
+                            </div>
 
                             {classificationError && <ErrorAlert message={classificationError} />}
 
