@@ -2,25 +2,22 @@ import type { CreateMatchPayload } from "@/api/matchesApi";
 import { ValidationError } from "@/types/errors";
 
 function normalizeTime(value: string) {
-    const time = value.length === 5 ? `${value}:00` : value;
-
-    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) {
-        return `1970-01-01T${time}`;
+    // If value is a local datetime without seconds (e.g. 2026-05-05T14:30), add seconds
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+        return `${value}:00`;
     }
-
-    return time;
+    return value;
 }
 
 function parseTimeToSeconds(value: string) {
-    const time = value.includes("T") ? value.split("T").at(-1) ?? "" : value;
-    const match = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?$/.exec(time);
+    // Expect an ISO local datetime (e.g. 2026-05-05T14:30:00 or 2026-05-05T14:30)
+    const timestamp = Date.parse(value);
 
-    if (!match) {
-        throw new ValidationError("Please provide valid match times.");
+    if (Number.isNaN(timestamp)) {
+        throw new ValidationError("Please provide valid match datetimes.");
     }
 
-    const [, hours, minutes, seconds] = match;
-    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+    return Math.floor(timestamp / 1000);
 }
 
 export function validateMatchPayload<T extends CreateMatchPayload>(data: T) {

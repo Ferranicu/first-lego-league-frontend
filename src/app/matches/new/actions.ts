@@ -1,11 +1,12 @@
 "use server";
 
 import { CreateMatchPayload, MatchesService } from "@/api/matchesApi";
+import { UsersService } from "@/api/userApi";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin } from "@/lib/authz";
 import { AuthenticationError } from "@/types/errors";
-import { UsersService } from "@/api/userApi";
 import { validateMatchPayload } from "../match-form-validation";
+
 
 export async function createMatch(data: CreateMatchPayload) {
     const auth = await serverAuthProvider.getAuth();

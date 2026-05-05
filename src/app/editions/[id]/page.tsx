@@ -4,27 +4,30 @@ import { LeaderboardService } from "@/api/leaderboardApi";
 import { MediaService } from "@/api/mediaApi";
 import { UsersService } from "@/api/userApi";
 import { buttonVariants } from "@/app/components/button";
-import ErrorAlert from "@/app/components/error-alert";
 import EmptyState from "@/app/components/empty-state";
-import EditionStateControls from "./edition-state-controls";
+import ErrorAlert from "@/app/components/error-alert";
 import LeaderboardTable from "@/app/components/leaderboard-table";
 import { MediaItem } from "@/app/components/media-gallery";
 import { MediaSection } from "@/app/components/media-section";
+import MediaUploadForm from "@/app/components/media-upload-form";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin } from "@/lib/authz";
 import { getEncodedResourceId } from "@/lib/halRoute";
+import { getTeamDisplayName } from "@/lib/teamUtils";
 import { Award } from "@/types/award";
+import { Round } from "@/types/round";
 import { Edition } from "@/types/edition";
+import { NotFoundError, parseErrorMessage } from "@/types/errors";
 import type { LeaderboardItem } from "@/types/leaderboard";
 import { MediaContent } from "@/types/mediaContent";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
-import { parseErrorMessage, NotFoundError } from "@/types/errors";
 import Link from "next/link";
-import { getTeamDisplayName } from "@/lib/teamUtils";
-import MediaUploadForm from "@/app/components/media-upload-form";
 import { redirect } from "next/navigation";
 import DeleteEditionButton from "./delete-edition-button";
+import RoundsManager from "./rounds-manager";
+import { RoundsService } from "@/api/roundsApi";
+import EditionStateControls from "./edition-state-controls";
 
 
 interface EditionDetailPageProps {
@@ -42,43 +45,6 @@ function getEditionTitle(edition: Edition | null, id: string) {
     }
 
     return `Edition ${id}`;
-}
-
-function getAwardWinnerTeamUri(award: Award): string | null {
-    const winnerTeamFromLink = award.link("winnerTeam")?.href;
-    if (winnerTeamFromLink) {
-        return winnerTeamFromLink;
-    }
-
-    if (typeof award.winnerTeam === "string" && award.winnerTeam.length > 0) {
-        return award.winnerTeam;
-    }
-
-    const winnerFromLink = award.link("winner")?.href;
-    if (winnerFromLink) {
-        return winnerFromLink;
-    }
-
-    const winner = Reflect.get(award, "winner");
-    if (typeof winner === "string" && winner.length > 0) {
-        return winner;
-    }
-
-    return null;
-}
-
-function normalizeUri(resourceUri: string | null | undefined): string | null {
-    if (!resourceUri) {
-        return null;
-    }
-
-    const sanitizedUri = resourceUri.split(/[?#]/, 1)[0] ?? null;
-
-    if (!sanitizedUri) {
-        return null;
-    }
-
-    return sanitizedUri.replace(/^https?:\/\/[^/]+/i, "");
 }
 
 interface EditionUriData {
@@ -122,37 +88,21 @@ function toMediaItem(content: MediaContent, editionUri: string | null | undefine
         uri: content.uri ?? content.link?.("self")?.href,
         id: content.id,
         type: content.type,
-        url: content.url ?? content.id,  // real API omits `url`; the `id` field holds the media URL
+        url: content.url ?? content.id,
         edition: editionUri ?? content.edition,
     };
-}
-
-function getAwardsByTeamUri(awards: Award[]): Map<string, Award[]> {
-    const awardsByTeamUri = new Map<string, Award[]>();
-
-    for (const award of awards) {
-        const teamUri = normalizeUri(getAwardWinnerTeamUri(award));
-        if (!teamUri) {
-            continue;
-        }
-
-        const existingAwards = awardsByTeamUri.get(teamUri) ?? [];
-        existingAwards.push(award);
-        awardsByTeamUri.set(teamUri, existingAwards);
-    }
-
-    return awardsByTeamUri;
 }
 
 export default async function EditionDetailPage(props: Readonly<EditionDetailPageProps>) {
     const { id } = await props.params;
 
     async function deleteEditionAction() {
-    "use server";
+        "use server";
 
-    await new EditionsService(serverAuthProvider).deleteEdition(id);
-    redirect("/editions");
-}
+        await new EditionsService(serverAuthProvider).deleteEdition(id);
+        redirect("/editions");
+    }
+
     const editionsService = new EditionsService(serverAuthProvider);
     const awardsService = new AwardsService(serverAuthProvider);
     const mediaService = new MediaService(serverAuthProvider);
@@ -163,11 +113,13 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
     let awards: Award[] = [];
     let mediaContents: MediaContent[] = [];
     let leaderboardItems: LeaderboardItem[] = [];
+    let rounds: Round[] = [];
     let error: string | null = null;
     let teamsError: string | null = null;
     let awardsError: string | null = null;
     let mediaError: string | null = null;
     let classificationError: string | null = null;
+    let roundsError: string | null = null;
 
     try {
         edition = await editionsService.getEditionById(id);
@@ -196,7 +148,7 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
             ({ awards, mediaContents, awardsError, mediaError } = await fetchByEditionUri(
                 edition.uri,
                 awardsService,
-                mediaService
+                mediaService,
             ));
         }
 
@@ -207,9 +159,14 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
             console.error("Failed to fetch leaderboard:", e);
             classificationError = parseErrorMessage(e);
         }
-    }
 
-    getAwardsByTeamUri(awards);
+        try {
+            rounds = await new RoundsService(serverAuthProvider).getRounds();
+        } catch (e) {
+            console.error("Failed to fetch rounds:", e);
+            roundsError = parseErrorMessage(e);
+        }
+    }
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
@@ -243,17 +200,17 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                         </div>
 
                         {currentUser && isAdmin(currentUser) && (
-                        <div className="flex gap-2">
-                            <Link
-                                href={`/editions/${id}/edit`}
-                                className={buttonVariants({ variant: "default", size: "sm" })}
-                            >
-                                ✏️ edit
-                            </Link>
+                            <div className="flex gap-2">
+                                <Link
+                                    href={`/editions/${id}/edit`}
+                                    className={buttonVariants({ variant: "default", size: "sm" })}
+                                >
+                                    ✏️ edit
+                                </Link>
 
-                            <DeleteEditionButton deleteAction={deleteEditionAction} />
-                        </div>
-                    )}
+                                <DeleteEditionButton deleteAction={deleteEditionAction} />
+                            </div>
+                        )}
                     </div>
 
                     {error && (
@@ -281,7 +238,6 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                                 <ul className="w-full space-y-3">
                                     {teams.map((team, index) => {
                                         const href = getTeamHref(team);
-
                                         return (
                                             <li
                                                 key={team.uri ?? index}
@@ -321,6 +277,12 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                                 Final Classification
                             </h2>
 
+                            <div className="mb-4">
+                                <Link href={`/editions/${id}/project-ranking`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                                    Scientific Project Ranking
+                                </Link>
+                            </div>
+
                             {classificationError && <ErrorAlert message={classificationError} />}
 
                             {!classificationError && leaderboardItems.length === 0 && (
@@ -332,6 +294,19 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
 
                             {!classificationError && leaderboardItems.length > 0 && (
                                 <LeaderboardTable items={leaderboardItems} />
+                            )}
+
+                            <h2 className="mt-8 mb-4 text-xl font-semibold text-foreground">
+                                Rounds
+                            </h2>
+
+                            {roundsError && <ErrorAlert message={roundsError} />}
+
+                            {!roundsError && (
+                                <RoundsManager
+                                    initialRounds={rounds.map((r) => ({ uri: r.uri, number: r.number }))}
+                                    isAdmin={!!(currentUser && isAdmin(currentUser))}
+                                />
                             )}
 
                             <section id="media-section">

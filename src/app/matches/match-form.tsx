@@ -160,7 +160,7 @@ export default function MatchForm({
                     <Label htmlFor="startTime">Start time</Label>
                     <Input
                         id="startTime"
-                        type="time"
+                        type="datetime-local"
                         step={60}
                         aria-invalid={!!errors.startTime}
                         aria-describedby={errors.startTime ? "start-time-error" : undefined}
@@ -175,7 +175,7 @@ export default function MatchForm({
                     <Label htmlFor="endTime">End time</Label>
                     <Input
                         id="endTime"
-                        type="time"
+                        type="datetime-local"
                         step={60}
                         aria-invalid={!!errors.endTime}
                         aria-describedby={errors.endTime ? "end-time-error" : undefined}
