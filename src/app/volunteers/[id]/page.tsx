@@ -1,7 +1,6 @@
 import { VolunteersService } from "@/api/volunteerApi";
 import { UsersService } from "@/api/userApi";
 import { ProjectRoomsService } from "@/api/projectRoomApi";
-import { CompetitionTableService, getTableId } from "@/api/competitionTableApi";
 import { EditionsService } from "@/api/editionApi";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { revalidatePath } from "next/cache";
@@ -10,7 +9,7 @@ import EmptyState from "@/app/components/empty-state";
 import { Volunteer } from "@/types/volunteer";
 import { parseErrorMessage } from "@/types/errors";
 import { isAdmin } from "@/lib/authz";
-import { mergeHal } from "@/api/halClient";
+import { mergeHal, fetchHalResource } from "@/api/halClient";
 import { getEncodedResourceId } from "@/lib/halRoute";
 import Link from "next/link";
 
@@ -29,7 +28,7 @@ export default async function VolunteerDetailPage(props: Readonly<Props>) {
     const userIsAdmin = isAdmin(currentUser);
 
     let volunteer: Volunteer | null = null;
-    let assignedProjectRoom: { id: string, name: string } | null = null;
+    let assignedProjectRoom: { id: string | null, name: string } | null = null;
     let assignedCompetitionTable: string | null = null;
     let assignedCompetitionTableEditionId: string | null = null;
 
@@ -48,30 +47,27 @@ export default async function VolunteerDetailPage(props: Readonly<Props>) {
                     if (judgeEmbedded) {
                         const judge = mergeHal<Volunteer>(judgeEmbedded);
                         if (judge.uri === volunteer.uri) {
-                            const roomId = (room.uri ? getEncodedResourceId(room.uri) : null) ?? String(index + 1);
+                            const roomId = room.uri ? getEncodedResourceId(room.uri) : null;
                             assignedProjectRoom = { id: roomId, name: `Room ${room.roomNumber ?? (index + 1)}` };
                             break;
                         }
                     }
                 }
-            } else if (volunteer.type === "Referee") {
-                const tableService = new CompetitionTableService(serverAuthProvider);
-                const tables = await tableService.getTables();
-                const tableIds = tables.map(getTableId);
-                for (const tableId of tableIds) {
-                    const referees = await tableService.getRefereesForTable(tableId);
-                    if (referees.some(r => r.link("self")?.href === volunteer?.uri)) {
-                        assignedCompetitionTable = tableId;
-                        break;
-                    }
-                }
+            } else if (volunteer.type === "Referee" && volunteer.uri) {
+                const refereeResource = await fetchHalResource<Volunteer>(volunteer.uri, serverAuthProvider);
+                const supervisesTableLink = refereeResource.link("supervisesTable")?.href;
 
-                if (assignedCompetitionTable) {
-                    const editionsService = new EditionsService(serverAuthProvider);
-                    const editions = await editionsService.getEditions();
-                    if (editions.length > 0) {
-                        const activeEdition = editions.find(e => e.state === 'ACTIVE') || editions[editions.length - 1];
-                        assignedCompetitionTableEditionId = activeEdition.uri ? getEncodedResourceId(activeEdition.uri) : null;
+                if (supervisesTableLink) {
+                    const parts = supervisesTableLink.split("/competitionTables/");
+                    if (parts.length > 1) {
+                        assignedCompetitionTable = decodeURIComponent(parts[1]);
+
+                        const editionsService = new EditionsService(serverAuthProvider);
+                        const editions = await editionsService.getEditions();
+                        if (editions.length > 0) {
+                            const activeEdition = editions.find(e => e.state === 'ACTIVE') || editions[editions.length - 1];
+                            assignedCompetitionTableEditionId = activeEdition.uri ? getEncodedResourceId(activeEdition.uri) : null;
+                        }
                     }
                 }
             }
@@ -95,6 +91,38 @@ export default async function VolunteerDetailPage(props: Readonly<Props>) {
         }
     }
     if (!volunteer) return <EmptyState title="Not found" />;
+
+    const renderAssignment = () => {
+        if (volunteer.type === "Judge") {
+            if (assignedProjectRoom) {
+                return (
+                    <p className="text-sm text-muted-foreground">
+                        Assigned to {assignedProjectRoom.id ? (
+                            <Link href={`/project-rooms/${assignedProjectRoom.id}`} className="text-accent font-medium hover:underline">{assignedProjectRoom.name}</Link>
+                        ) : (
+                            <span className="font-medium text-foreground">{assignedProjectRoom.name}</span>
+                        )}
+                    </p>
+                );
+            }
+            return <p className="text-sm text-muted-foreground italic">Not currently assigned to any project room.</p>;
+        }
+        if (volunteer.type === "Referee") {
+            if (assignedCompetitionTable) {
+                return (
+                    <p className="text-sm text-muted-foreground">
+                        Assigned to {assignedCompetitionTableEditionId ? (
+                            <Link href={`/editions/${assignedCompetitionTableEditionId}/competition-tables`} className="text-accent font-medium hover:underline">{assignedCompetitionTable}</Link>
+                        ) : (
+                            <span className="font-medium text-foreground">{assignedCompetitionTable}</span>
+                        )}
+                    </p>
+                );
+            }
+            return <p className="text-sm text-muted-foreground italic">Not currently assigned to any competition table.</p>;
+        }
+        return null;
+    };
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
@@ -125,27 +153,7 @@ export default async function VolunteerDetailPage(props: Readonly<Props>) {
                     {volunteer.type !== "Floater" && (
                         <div className="mt-6 space-y-2 border-t pt-4">
                             <h2 className="text-xl font-semibold">Assignment</h2>
-                            {volunteer.type === "Judge" ? (
-                                assignedProjectRoom ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        Assigned to <Link href={`/project-rooms/${assignedProjectRoom.id}`} className="text-accent font-medium hover:underline">{assignedProjectRoom.name}</Link>
-                                    </p>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground italic">Not currently assigned to any project room.</p>
-                                )
-                            ) : volunteer.type === "Referee" ? (
-                                assignedCompetitionTable ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        Assigned to {assignedCompetitionTableEditionId ? (
-                                            <Link href={`/editions/${assignedCompetitionTableEditionId}/competition-tables`} className="text-accent font-medium hover:underline">{assignedCompetitionTable}</Link>
-                                        ) : (
-                                            <span className="font-medium text-foreground">{assignedCompetitionTable}</span>
-                                        )}
-                                    </p>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground italic">Not currently assigned to any competition table.</p>
-                                )
-                            ) : null}
+                            {renderAssignment()}
                         </div>
                     )}
                 </div>
