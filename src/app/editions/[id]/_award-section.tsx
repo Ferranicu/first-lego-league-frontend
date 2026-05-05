@@ -10,7 +10,7 @@ import { updateAward } from "./_award-actions";
 
 interface AwardSectionProps {
     readonly award: {
-        readonly resourceUri: string;
+        readonly resourceUri?: string;
         readonly name?: string;
         readonly title?: string;
         readonly category?: string;
@@ -54,7 +54,7 @@ export default function AwardSection({
     const router = useRouter();
     const dialogRef = useRef<HTMLDialogElement>(null);
     const titleId = useId();
-    const resourceUri = award.resourceUri;
+    const resourceUri = award.resourceUri ?? null;
     const [displayAward, setDisplayAward] = useState(award);
 
     const [isEditing, setIsEditing] = useState(false);

@@ -11,6 +11,7 @@ import { MediaItem } from "@/app/components/media-gallery";
 import { MediaSection } from "@/app/components/media-section";
 import MediaUploadForm from "@/app/components/media-upload-form";
 import { serverAuthProvider } from "@/lib/authProvider";
+import { getAwardWinnerTeamUri, normalizeUri } from "@/lib/awardUtils";
 import { isAdmin } from "@/lib/authz";
 import { getEncodedResourceId } from "@/lib/halRoute";
 import { getTeamDisplayName } from "@/lib/teamUtils";
@@ -24,6 +25,7 @@ import { User } from "@/types/user";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import DeleteEditionButton from "./delete-edition-button";
+import AwardSection from "./_award-section";
 import EditionStateControls from "./edition-state-controls";
 
 
@@ -53,6 +55,20 @@ function getTeamHref(team: Team): string | null {
 
 function getTeamUri(team: Team): string | null {
     return team.link("self")?.href ?? team.uri ?? null;
+}
+
+function getAwardResourceUri(award: Award): string | null {
+    return award.uri ?? award.link("self")?.href ?? null;
+}
+
+function getTeamAwards(team: Team, awards: Award[]): Award[] {
+    const teamUri = normalizeUri(getTeamUri(team));
+
+    if (!teamUri) {
+        return [];
+    }
+
+    return awards.filter((award) => normalizeUri(getAwardWinnerTeamUri(award)) === teamUri);
 }
 
 function getEditionTitle(edition: Edition | null, id: string) {
@@ -257,6 +273,7 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                                 <ul className="w-full space-y-3">
                                     {teams.map((team, index) => {
                                         const href = getTeamHref(team);
+                                        const teamAwards = getTeamAwards(team, awards);
                                         return (
                                             <li
                                                 key={team.uri ?? index}
@@ -285,15 +302,19 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                                                             </div>
 
                                                             <div className="space-y-3">
-                                                                {teamAwards.map((award) => (
-                                                                    <AwardSection
-                                                                        key={award.resourceUri || `${team.uri ?? index}-${award.name ?? award.title ?? award.category ?? "award"}`}
-                                                                        award={award}
-                                                                        editionId={id}
-                                                                        editions={editions}
-                                                                        isAdmin={Boolean(currentUser && isAdmin(currentUser))}
-                                                                    />
-                                                                ))}
+                                                                {teamAwards.map((award, awardIndex) => {
+                                                                    const resourceUri = getAwardResourceUri(award);
+
+                                                                    return (
+                                                                        <AwardSection
+                                                                            key={resourceUri || `${team.uri ?? index}-${award.name ?? award.title ?? award.category ?? "award"}-${awardIndex}`}
+                                                                            award={{ ...award, ...(resourceUri ? { resourceUri } : {}) }}
+                                                                            editionId={id}
+                                                                            editions={editions}
+                                                                            isAdmin={Boolean(currentUser && isAdmin(currentUser))}
+                                                                        />
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     )}
