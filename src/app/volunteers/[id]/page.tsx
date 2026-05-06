@@ -8,9 +8,11 @@ import EmptyState from "@/app/components/empty-state";
 import { Volunteer } from "@/types/volunteer";
 import { parseErrorMessage } from "@/types/errors";
 import { isAdmin } from "@/lib/authz";
-import { mergeHal, fetchHalResource } from "@/api/halClient";
+import { fetchHalResource } from "@/api/halClient";
 import { getEncodedResourceId } from "@/lib/halRoute";
 import Link from "next/link";
+import { ProjectRoom } from "@/types/projectRoom";
+import { CompetitionTable } from "@/types/competitionTable";
 
 
 interface Props {
@@ -25,7 +27,7 @@ async function getJudgeAssignment(volunteerUri: string) {
 
         if (!memberOfRoomLink) return null;
 
-        const roomResource = await fetchHalResource<any>(memberOfRoomLink, serverAuthProvider);
+        const roomResource = await fetchHalResource<ProjectRoom>(memberOfRoomLink, serverAuthProvider);
         const uri = roomResource.uri || roomResource.link("self")?.href;
         if (!uri) return null;
 
@@ -34,7 +36,8 @@ async function getJudgeAssignment(volunteerUri: string) {
 
         const roomId = decodeURIComponent(parts[1].split('/')[0]);
         return { id: roomId, name: roomResource.roomNumber ? `Room ${roomResource.roomNumber}` : `Room ${roomId}` };
-    } catch (e) {
+    } catch (error) {
+        console.error("Failed to resolve judge assignment:", error);
         return null;
     }
 }
@@ -46,7 +49,7 @@ async function getRefereeAssignment(volunteerUri: string) {
 
         if (!supervisesTableLink) return null;
 
-        const tableResource = await fetchHalResource<any>(supervisesTableLink, serverAuthProvider);
+        const tableResource = await fetchHalResource<CompetitionTable>(supervisesTableLink, serverAuthProvider);
         const uri = tableResource.uri || tableResource.link("self")?.href;
         
         if (!uri) return null;
@@ -67,7 +70,8 @@ async function getRefereeAssignment(volunteerUri: string) {
         }
         
         return { tableId, editionId: null };
-    } catch (e) {
+    } catch (error) {
+        console.error("Failed to resolve referee assignment:", error);
         return null;
     }
 }
