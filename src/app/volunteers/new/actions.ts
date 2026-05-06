@@ -6,6 +6,7 @@ import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin } from "@/lib/authz";
 import { isValidEmailAddress } from "@/lib/validation";
 import { AuthenticationError, ValidationError } from "@/types/errors";
+import { VOLUNTEER_ROLES, VolunteerRole } from "@/types/volunteer";
 import { revalidatePath } from "next/cache";
 
 export type CreateVolunteerFormPayload = {
@@ -13,12 +14,16 @@ export type CreateVolunteerFormPayload = {
     emailAddress: string;
     phoneNumber: string;
     edition: string;
-    type: string;
+    type: VolunteerRole;
     expert: boolean;
     studentCode: string;
 };
 
-const volunteerTypes = new Set(["Judge", "Referee", "Floater"]);
+const volunteerTypes = new Set<VolunteerRole>(VOLUNTEER_ROLES);
+
+function isVolunteerRole(value: string): value is VolunteerRole {
+    return volunteerTypes.has(value as VolunteerRole);
+}
 
 function normalizeRequiredString(value: unknown, message: string) {
     if (typeof value !== "string") {
@@ -45,7 +50,7 @@ function validateVolunteerPayload(data: CreateVolunteerFormPayload): CreateVolun
         throw new ValidationError("Please enter a valid email address.");
     }
 
-    if (!volunteerTypes.has(type)) {
+    if (!isVolunteerRole(type)) {
         throw new ValidationError("Please select a valid volunteer type.");
     }
 
@@ -65,8 +70,8 @@ function validateVolunteerPayload(data: CreateVolunteerFormPayload): CreateVolun
         emailAddress,
         phoneNumber,
         edition,
-        type: type as "Judge" | "Referee",
-        expert: Boolean(data.expert),
+        type,
+        expert: typeof data.expert === "boolean" ? data.expert : false,
     };
 }
 

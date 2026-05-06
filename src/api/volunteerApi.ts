@@ -1,5 +1,5 @@
 import type { AuthStrategy } from "@/lib/authProvider";
-import { Volunteer } from "@/types/volunteer";
+import { Volunteer, VolunteerRole } from "@/types/volunteer";
 import { createHalResource, deleteHal, fetchHalCollection, patchHal } from "./halClient";
 
 type RawVolunteer = {
@@ -12,15 +12,16 @@ type RawVolunteer = {
     studentCode?: string;
 };
 
-export type CreateVolunteerPayload = {
+type BaseCreateVolunteerPayload = {
     name: string;
     emailAddress: string;
     phoneNumber: string;
     edition: string;
-    type: "Judge" | "Referee" | "Floater";
-    expert?: boolean;
-    studentCode?: string;
 };
+
+export type CreateVolunteerPayload =
+    | (BaseCreateVolunteerPayload & { type: "Judge" | "Referee"; expert: boolean })
+    | (BaseCreateVolunteerPayload & { type: "Floater"; studentCode: string });
 
 type CreateVolunteerRequest = {
     name: string;
@@ -35,7 +36,7 @@ const volunteerTypeEndpoints = {
     Judge: "/judges",
     Referee: "/referees",
     Floater: "/floaters",
-} as const;
+} satisfies Record<VolunteerRole, string>;
 
 export class VolunteersService {
     constructor(private readonly authStrategy: AuthStrategy) { }
@@ -73,12 +74,10 @@ export class VolunteersService {
             edition: data.edition,
         };
 
-        if (data.type === "Judge" || data.type === "Referee") {
-            payload.expert = data.expert ?? false;
-        }
-
         if (data.type === "Floater") {
             payload.studentCode = data.studentCode;
+        } else {
+            payload.expert = data.expert;
         }
 
         return createHalResource<Volunteer>(

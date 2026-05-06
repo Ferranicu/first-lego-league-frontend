@@ -5,7 +5,7 @@ import { Input } from "@/app/components/input";
 import { Label } from "@/app/components/label";
 import { isValidEmailAddress } from "@/lib/validation";
 import { parseErrorMessage } from "@/types/errors";
-import { VolunteerRole } from "@/types/volunteer";
+import { VOLUNTEER_ROLES } from "@/types/volunteer";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SubmitHandler, useForm, useWatch } from "react-hook-form";
@@ -15,8 +15,6 @@ export type VolunteerEditionOption = {
     label: string;
     value: string;
 };
-
-const volunteerTypes: VolunteerRole[] = ["Judge", "Referee", "Floater"];
 
 const selectClassName =
     "border-input h-11 w-full border bg-card px-4 py-2 text-base outline-none " +
@@ -82,7 +80,6 @@ export default function NewVolunteerForm({
             const destination = await createVolunteer(data);
             setIsRedirecting(true);
             router.push(destination);
-            router.refresh();
         } catch (error) {
             setIsRedirecting(false);
             setSubmitError(parseErrorMessage(error));
@@ -107,6 +104,7 @@ export default function NewVolunteerForm({
                 </p>
             )}
 
+            <fieldset disabled={isUnavailable} className="contents">
             <div className="grid gap-5 md:grid-cols-2">
                 <div className="grid gap-2">
                     <Label htmlFor="name">Name</Label>
@@ -183,7 +181,7 @@ export default function NewVolunteerForm({
                             required: "Volunteer type is required",
                         })}
                     >
-                        {volunteerTypes.map((type) => (
+                        {VOLUNTEER_ROLES.map((type) => (
                             <option key={type} value={type}>
                                 {type}
                             </option>
@@ -223,6 +221,7 @@ export default function NewVolunteerForm({
                     </span>
                 </label>
             )}
+            </fieldset>
 
             <Button
                 type="submit"

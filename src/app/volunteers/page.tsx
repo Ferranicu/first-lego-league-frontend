@@ -42,7 +42,6 @@ export default async function VolunteersPage() {
         floaters = data.floaters.map(toVolunteerItem);
         
     } catch (e) {
-        console.error("Failed to fetch volunteers:", e);
         error = parseErrorMessage(e);
     }
 
