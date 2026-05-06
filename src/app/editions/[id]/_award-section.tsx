@@ -11,6 +11,7 @@ import { updateAward } from "./_award-actions";
 interface AwardSectionProps {
     readonly award: {
         readonly resourceUri?: string;
+        readonly id?: string | number;
         readonly name?: string;
         readonly title?: string;
         readonly category?: string;
@@ -54,7 +55,7 @@ export default function AwardSection({
     const router = useRouter();
     const dialogRef = useRef<HTMLDialogElement>(null);
     const titleId = useId();
-    const resourceUri = award.resourceUri ?? null;
+    const resourceUri = award.resourceUri ?? (award.id != null ? `/awards/${award.id}` : null);
     const [displayAward, setDisplayAward] = useState(award);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -62,6 +63,7 @@ export default function AwardSection({
     const [name, setName] = useState(award.name ?? "");
     const [title, setTitle] = useState(award.title ?? "");
     const [category, setCategory] = useState(award.category ?? "");
+    const [edition, setEdition] = useState(award.edition ?? "");
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -88,6 +90,7 @@ export default function AwardSection({
         setName(displayAward.name ?? "");
         setTitle(displayAward.title ?? "");
         setCategory(displayAward.category ?? "");
+        setEdition(displayAward.edition ?? "");
         setErrorMessage(null);
         setSuccessMessage(null);
         setIsEditing(true);
@@ -137,6 +140,7 @@ export default function AwardSection({
         }
     }
 
+
     return (
         <article className="rounded-lg border border-border bg-background/80 p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -162,15 +166,19 @@ export default function AwardSection({
                     </p>
                 </div>
 
-                {isAdmin && resourceUri && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={openEditor}
-                    >
-                        Edit award
-                    </Button>
+                {isAdmin && (
+                    <div className="flex gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={openEditor}
+                            disabled={!resourceUri}
+                            title={!resourceUri ? "This award is missing its resource URI" : undefined}
+                        >
+                            Edit award
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -238,9 +246,36 @@ export default function AwardSection({
                                     />
                                 </div>
                             </div>
-                        </div>
 
-                        <input type="hidden" name="edition" value={displayAward.edition ?? ""} />
+                            <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor={`${titleId}-edition`}>Edition</Label>
+                                <select
+                                    id={`${titleId}-edition`}
+                                    name="edition"
+                                    value={edition}
+                                    onChange={(event) => setEdition(event.target.value)}
+                                    required
+                                    className="border-input h-10 rounded-md border bg-card px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/35 focus-visible:ring-[3px]"
+                                >
+                                    <option value="" disabled>
+                                        Select an edition
+                                    </option>
+                                    {editions.map((editionOption) => {
+                                        const value = editionOption.uri ?? "";
+                                        const label =
+                                            editionOption.year
+                                                ? `${editionOption.year}${editionOption.venueName ? ` - ${editionOption.venueName}` : ""}`
+                                                : editionOption.venueName ?? value;
+
+                                        return (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                        </div>
 
                         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                             <Button

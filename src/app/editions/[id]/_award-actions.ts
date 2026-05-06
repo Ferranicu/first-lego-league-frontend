@@ -78,3 +78,29 @@ export async function updateAward(awardUri: string, editionId: string, formData:
         };
     }
 }
+
+type AwardDeleteResult =
+    | { success: true }
+    | { success: false; error: string };
+
+export async function deleteAwardAction(awardId: string, editionId: string): Promise<AwardDeleteResult> {
+    try {
+        await assertAdminAccess();
+
+        if (!awardId) {
+            return { success: false, error: "Award resource is not available." };
+        }
+
+        const service = new AwardsService(serverAuthProvider);
+        await service.deleteAward(awardId);
+
+        revalidatePath(`/editions/${editionId}`);
+
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: parseErrorMessage(error),
+        };
+    }
+}

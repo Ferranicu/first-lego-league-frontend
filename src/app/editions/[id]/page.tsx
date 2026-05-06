@@ -26,6 +26,7 @@ import { User } from "@/types/user";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import DeleteEditionButton from "./delete-edition-button";
+import AwardSection from "./_award-section";
 import RoundsManager from "./rounds-manager";
 import { RoundsService } from "@/api/roundsApi";
 import EditionStateControls from "./edition-state-controls";
@@ -33,15 +34,6 @@ import EditionStateControls from "./edition-state-controls";
 
 interface EditionDetailPageProps {
     readonly params: Promise<{ id: string }>;
-}
-
-interface AwardCard {
-    readonly resourceUri: string;
-    readonly name?: string;
-    readonly title?: string;
-    readonly category?: string;
-    readonly edition?: string;
-    readonly winnerTeam?: string;
 }
 
 interface EditionOption {

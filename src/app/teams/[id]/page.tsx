@@ -25,6 +25,21 @@ interface TeamDetailPageProps {
     readonly params: Promise<{ id: string }>;
 }
 
+interface EditionOption {
+    readonly uri?: string;
+    readonly year?: number;
+    readonly venueName?: string;
+}
+
+interface AwardSnapshot {
+    readonly id?: string;
+    readonly uri?: string;
+    readonly name?: string;
+    readonly title?: string;
+    readonly category?: string;
+    readonly edition?: string;
+}
+
 function toTeamMemberSnapshot(member: TeamMember): TeamMemberSnapshot {
     return {
         id: member.id,
@@ -52,6 +67,17 @@ function getTeamEditionUri(team: Team): string | null {
 
     const edition = Reflect.get(team, "edition");
     return typeof edition === "string" && edition.length > 0 ? edition : null;
+}
+
+function toAwardSnapshot(award: Award): AwardSnapshot {
+    return {
+        id: String(Reflect.get(award, "id") ?? ""),
+        uri: award.uri ?? award.link("self")?.href ?? undefined,
+        name: award.name,
+        title: award.title,
+        category: award.category,
+        edition: award.edition,
+    };
 }
 
 async function fetchMatchLink<T>(match: Match, rel: string, fetcher: () => Promise<T>): Promise<T | null> {
@@ -116,13 +142,13 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
     let members: TeamMember[] = [];
     let scientificProjects: ScientificProject[] = [];
     let awards: Award[] = [];
+    let editions: EditionOption[] = [];
     let editionYearStr: string | undefined;
     let teamEditionUri: string | null = null;
     let teamMatchesData: Array<{ match: Match; table: string; opponent?: string; round?: string }> = [];
 
     let error: string | null = null;
     let membersError: string | null = null;
-    let scientificProjectsError: string | null = null;
     let awardsError: string | null = null;
     let matchesError: string | null = null;
 
@@ -156,6 +182,18 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
             }
         }
 
+        if (isAdminUser) {
+            try {
+                editions = (await editionsService.getEditions()).map((item) => ({
+                    uri: item.uri,
+                    year: item.year,
+                    venueName: item.venueName,
+                }));
+            } catch (e) {
+                console.error("Error loading editions:", e);
+            }
+        }
+
         const [membersResult, scientificProjectsResult, matchesResult, awardsResult] = await Promise.allSettled([
             Promise.all([
                 teamsService.getTeamCoach(id),
@@ -182,8 +220,6 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
 
         if (scientificProjectsResult.status === "fulfilled") {
             scientificProjects = scientificProjectsResult.value;
-        } else {
-            scientificProjectsError = parseErrorMessage(scientificProjectsResult.reason);
         }
 
         if (matchesResult.status === "fulfilled") {
@@ -222,14 +258,8 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
                 coach.emailAddress?.trim().toLowerCase() === currentUserEmail
         );
 
-    const coachName =
-        coaches.length > 0
-            ? coaches
-                .map((coach) => coach.name ?? coach.emailAddress ?? "Unnamed coach")
-                .join(", ")
-            : "No coach assigned";
-
     const initialMembers = members.map(toTeamMemberSnapshot);
+    const awardSnapshots = awards.map(toAwardSnapshot);
 
     const membersKey = initialMembers
         .map((member) => member.uri ?? String(member.id ?? member.name ?? ""))
@@ -320,7 +350,8 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
                     <TeamAwardsSection
                         teamId={id}
                         teamName={teamDisplayName ?? team.id ?? "Team"}
-                        awards={awards}
+                        awards={awardSnapshots}
+                        editions={editions}
                         awardsError={awardsError}
                         isAdminUser={isAdminUser}
                         teamEditionUri={teamEditionUri}
