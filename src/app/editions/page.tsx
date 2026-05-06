@@ -2,74 +2,31 @@ import { EditionsService } from "@/api/editionApi";
 import { UsersService } from "@/api/userApi";
 import PageShell from "@/app/components/page-shell";
 import ErrorAlert from "@/app/components/error-alert";
-import EmptyState from "@/app/components/empty-state";
-import PaginationControls from "@/app/components/pagination-controls";
 import { buttonVariants } from "@/app/components/button";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin } from "@/lib/authz";
-import { getEncodedResourceId } from "@/lib/halRoute";
-import { Edition } from "@/types/edition";
+import { cn } from "@/lib/utils";
 import { parseErrorMessage } from "@/types/errors";
-import type { HalPage } from "@/types/pagination";
 import { User } from "@/types/user";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import EditionsClient, { EditionItem } from "./_editions-client";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 5;
+type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-function getEditionHref(edition: Edition) {
-    const editionId = getEncodedResourceId(edition.uri);
-    return editionId ? `/editions/${editionId}` : null;
-}
-
-function EditionCard({ edition }: Readonly<{ edition: Edition }>) {
-    const href = getEditionHref(edition);
-    const content = (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 space-y-2">
-                <div className="list-kicker">Edition</div>
-                <div className="list-title">{edition.year}</div>
-                {edition.venueName && (
-                    <div className="list-support">{edition.venueName}</div>
-                )}
-                {edition.description && (
-                    <div className="list-support">{edition.description}</div>
-                )}
-            </div>
-            {edition.state && (
-                <div className="status-badge">{edition.state}</div>
-            )}
-        </div>
-    );
-
-    if (!href) {
-        return (
-            <div className="list-card block h-full pl-7">
-                {content}
-            </div>
-        );
-    }
-
-    return (
-        <Link className="list-card block h-full pl-7 hover:text-primary" href={href}>
-            {content}
-        </Link>
-    );
-}
-
-type EditionsPageSearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-export default async function EditionsPage({ searchParams }: Readonly<{ searchParams: EditionsPageSearchParams }>) {
+export default async function EditionsPage({
+    searchParams,
+}: Readonly<{ searchParams: PageSearchParams }>) {
     const params = await searchParams;
-    const rawYear = params.year;
-    const year = Array.isArray(rawYear) ? rawYear[0] : rawYear;
-    const urlPage = Math.max(1, Number(params.page ?? "1") || 1);
+    const stateFilter = typeof params.state === "string" ? params.state : "";
+    const searchFilter = typeof params.search === "string" ? params.search : "";
 
-    let editions: Edition[] = [];
-    let result: HalPage<Edition> = { items: [], hasNext: false, hasPrev: false, currentPage: 0 };
+    let editions: EditionItem[] = [];
     let error: string | null = null;
     let currentUser: User | null = null;
+    let allStates: string[] = [];
 
     try {
         currentUser = await new UsersService(serverAuthProvider).getCurrentUser();
@@ -79,14 +36,30 @@ export default async function EditionsPage({ searchParams }: Readonly<{ searchPa
 
     try {
         const service = new EditionsService(serverAuthProvider);
+        const allEditions = await service.getEditions();
 
-        if (year?.trim()) {
-            const edition = await service.getEditionByYear(year.trim());
-            editions = edition ? [edition] : [];
-        } else {
-            result = await service.getEditionsPaged(urlPage - 1, PAGE_SIZE);
-            editions = result.items;
-        }
+        allStates = Array.from(
+            new Set(allEditions.map((e) => e.state).filter((s): s is string => Boolean(s)))
+        ).sort((a, b) => a.localeCompare(b));
+
+        editions = allEditions
+            .filter((e) => !stateFilter || e.state === stateFilter)
+            .filter((e) => {
+                if (!searchFilter.trim()) return true;
+                const q = searchFilter.trim().toLowerCase();
+                return (
+                    e.venueName?.toLowerCase().includes(q) ||
+                    e.description?.toLowerCase().includes(q) ||
+                    (e.year !== undefined && String(e.year).includes(q))
+                );
+            })
+            .map((e) => ({
+                uri: e.uri,
+                year: e.year,
+                venueName: e.venueName,
+                description: e.description,
+                state: e.state,
+            }));
     } catch (e) {
         console.error("Failed to fetch editions:", e);
         error = parseErrorMessage(e);
@@ -94,51 +67,33 @@ export default async function EditionsPage({ searchParams }: Readonly<{ searchPa
 
     return (
         <PageShell
-            eyebrow="Competition archive"
+            eyebrow="Edition management"
             title="Editions"
-            description="Browse the yearly editions of FIRST LEGO League, including venue and season details."
+            description="Browse the yearly editions currently registered in the FIRST LEGO League platform."
+            bannerClassName="editions-page-banner"
+            panelClassName="editions-page-panel"
             heroAside={isAdmin(currentUser) ? (
-                <Link href="/editions/new" className={buttonVariants({ variant: "default", size: "sm" })}>
-                    + Create
+                <Link
+                    href="/editions/new"
+                    className={cn(
+                        buttonVariants({ variant: "default", size: "sm" }),
+                        "editions-page-create-button",
+                    )}
+                >
+                    <span className="editions-page-create-button__label">Create new edition</span>
+                    <ArrowUpRight aria-hidden="true" />
                 </Link>
             ) : undefined}
         >
-            <div className="space-y-6">
-                <div className="space-y-3">
-                    <div className="page-eyebrow">Edition list</div>
-                    <h2 className="section-title">Season overview</h2>
-                    <p className="section-copy max-w-3xl">
-                        Each card highlights the season, venue and published information for that edition.
-                    </p>
-                </div>
-
+            <div className="editions-page-content">
                 {error && <ErrorAlert message={error} />}
-
-                {!error && editions.length === 0 && (
-                    <EmptyState
-                        title="No editions found"
-                        description="There are currently no editions available to display."
+                {!error && (
+                    <EditionsClient
+                        editions={editions}
+                        initialSearch={searchFilter}
+                        initialState={stateFilter}
+                        allStates={allStates}
                     />
-                )}
-
-                {!error && editions.length > 0 && (
-                    <>
-                        <ul className="list-grid">
-                            {editions.map((edition, index) => (
-                                <li key={edition.uri ?? index}>
-                                    <EditionCard edition={edition} />
-                                </li>
-                            ))}
-                        </ul>
-                        {!year && (
-                            <PaginationControls
-                                currentPage={urlPage}
-                                hasNext={result.hasNext}
-                                hasPrev={result.hasPrev}
-                                basePath="/editions"
-                            />
-                        )}
-                    </>
                 )}
             </div>
         </PageShell>

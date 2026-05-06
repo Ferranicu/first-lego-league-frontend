@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../css/editions-list.css";
+@import "../css/scientific-projects-list.css";
+@import "../css/teams-list.css";
 
 @custom-variant dark (&:is(.dark *));
 

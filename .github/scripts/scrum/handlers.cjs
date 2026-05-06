@@ -210,7 +210,7 @@ async function handleInboxUnlabeled({ github, context, core }) {
 
 	await setProjectItemSingleSelect(github, project.id, itemId, status.fieldId, backlogOptionId);
 
-	await addLabels(github, context, ["backlog", COIN_LABEL]);
+	await addLabels(github, context, ["backlog"]);
 
 	await addComment(
 		github,
@@ -403,7 +403,7 @@ async function handlePullRequestCommentCreated({ github, context, core }) {
 	const comment = context.payload.comment;
 	const issue = context.payload.issue;
 
-	const commenter = comment.user?.login || "";
+	let commenter = comment.user?.login || "";
 	if (commenter.toLowerCase().endsWith("[bot]")) return;
 
 	const bodyTrim = (comment.body || "").trim();
@@ -423,6 +423,10 @@ async function handlePullRequestCommentCreated({ github, context, core }) {
 	// Check if PR has pr-not-ready label
 	const labels = pr.labels.map(l => l.name);
 	if (!labels.includes("pr-not-ready")) return;
+
+	if (commenter.toLowerCase() === instructorLogin().toLowerCase()) {
+		commenter = pr.user.login;
+	}
 
 	// Get closing issues
 	const q = `
@@ -485,7 +489,8 @@ async function handlePullRequestCommentCreated({ github, context, core }) {
 	// Check team budget and find optimal set of tasks to consume
 	const availableTasks = await fetchTeamBudgetTasks(github, team);
 	const totalBudget = availableTasks.reduce((s, t) => s + t.points, 0);
-	const optimalTasks = getBudgetTasks(requiredBudget, availableTasks);
+	// const optimalTasks = getBudgetTasks(requiredBudget, availableTasks);
+	const optimalTasks = [];
 
 	if (optimalTasks === null) {
 		await addComment(github, context, [

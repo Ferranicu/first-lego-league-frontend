@@ -3,12 +3,16 @@ import { API_BASE_URL } from "@/api/halClient";
 import { MatchesService } from "@/api/matchesApi";
 import { TeamsService } from "@/api/teamApi";
 import { UsersService } from "@/api/userApi";
+import { buttonVariants } from "@/app/components/button";
+import { Breadcrumb } from "@/app/components/breadcrumb";
 import ErrorAlert from "@/app/components/error-alert";
+import { InfoRow } from '@/app/components/info-row';
 import PageShell from "@/app/components/page-shell";
 import { serverAuthProvider } from "@/lib/authProvider";
 import { isAdmin, isReferee } from "@/lib/authz";
 import { getEncodedResourceId } from "@/lib/halRoute";
 import { formatMatchTime } from "@/lib/matchUtils";
+import { getTeamDisplayName } from "@/lib/teamUtils";
 import { Edition } from "@/types/edition";
 import { NotFoundError, parseErrorMessage } from "@/types/errors";
 import { Match } from "@/types/match";
@@ -16,6 +20,7 @@ import { MatchResult } from "@/types/matchResult";
 import { Round } from "@/types/round";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
+import { Pencil } from "lucide-react";
 import Link from "next/link";
 import MatchDeleteSection from "./match-delete-section";
 import RecordResultForm from "./record-result-form";
@@ -89,15 +94,6 @@ function getRoundLabel(round: Round | null, fallbackRound?: string) {
     return "Round unavailable";
 }
 
-function InfoRow({ label, value }: Readonly<{ label: string; value: string }>) {
-    return (
-        <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
-            <span className="min-w-36 text-sm font-medium text-foreground">{label}</span>
-            <span className="text-sm text-muted-foreground">{value}</span>
-        </div>
-    );
-}
-
 function TeamCard({ team, label, yearQuery }: Readonly<{ team: Team; label: string; yearQuery: string }>) {
     const teamId = getEncodedResourceId(team.uri ?? team.link("self")?.href);
 
@@ -106,7 +102,7 @@ function TeamCard({ team, label, yearQuery }: Readonly<{ team: Team; label: stri
             className={`module-card flex flex-col gap-2 rounded-lg border border-border bg-card p-5 transition-colors${teamId ? " hover:bg-secondary/30" : ""}`}
         >
             <div className="page-eyebrow">{label}</div>
-            <p className="list-title">{team.name ?? team.id ?? "Unnamed team"}</p>
+            <p className="list-title">{getTeamDisplayName(team)}</p>
             <div className="space-y-1">
                 {team.city && <p className="list-support">{team.city}</p>}
                 {team.category && (
@@ -241,7 +237,7 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
 
         const halLink = match.link(rel)?.href;
         const targetId = getEncodedResourceId(halLink);
-        
+
         if (targetId) {
             const linkedTeam = teams.find((t) => getEncodedResourceId(t.link("self")?.href ?? t.uri) === targetId);
             if (linkedTeam) return linkedTeam;
@@ -252,7 +248,7 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
         } else {
             console.warn(`HAL link for ${rel} absent. Falling back to name comparison for "${fallbackName}".`);
         }
-        
+
         return teams.find((t) => t.name === fallbackName) ?? null;
     };
 
@@ -272,10 +268,22 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
             title={getMatchTitle(match, id)}
             description={displayState ? `Status: ${displayState}` : undefined}
         >
+            <Breadcrumb
+                items={[
+                    { label: "Home", href: "/" },
+                    { label: "Matches", href: "/matches" },
+                    { label: getMatchTitle(match, id) },
+                ]}
+            />
+
             {matchError && <ErrorAlert message={matchError} />}
 
             {!matchError && match && isAdmin(currentUser) && (
-                <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-3">
+                    <Link href={`/matches/${id}/edit`} className={buttonVariants({ variant: "secondary" })}>
+                        <Pencil aria-hidden="true" />
+                        Edit
+                    </Link>
                     <MatchDeleteSection matchId={id} />
                 </div>
             )}
@@ -313,7 +321,7 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
                                 Teams
                             </h2>
                         </div>
-                        
+
                         {teamsError && <ErrorAlert message={teamsError} />}
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -369,13 +377,18 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
                                 </h2>
                             </div>
                             {matchResults.length > 0 ? (
-                                // TODO: implement edit result form (new issue)
-                                <button
-                                    disabled
-                                    className="rounded border border-border bg-card px-4 py-2 text-sm text-muted-foreground opacity-50 cursor-not-allowed"
-                                >
-                                    Edit Result (coming soon)
-                                </button>
+                                <RecordResultForm
+                                    matchId={numericMatchId}
+                                    teamAId={teamAId}
+                                    teamBId={teamBId}
+                                    teamAName={teamADisplayName}
+                                    teamBName={teamBDisplayName}
+                                    mode="edit"
+                                    initialTeamAScore={matchResults[0]?.score}
+                                    initialTeamBScore={matchResults[1]?.score}
+                                    teamAResultUri={matchResults[0]?.link("self")?.href}
+                                    teamBResultUri={matchResults[1]?.link("self")?.href}
+                                />
                             ) : (
                                 <RecordResultForm
                                     matchId={numericMatchId}

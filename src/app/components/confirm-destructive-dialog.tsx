@@ -1,115 +1,99 @@
 "use client";
 
-import { ReactNode, useEffect, useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/app/components/button";
-import ErrorAlert from "@/app/components/error-alert";
-import { parseErrorMessage } from "@/types/errors";
 
 interface ConfirmDestructiveDialogProps {
-  readonly title: string;
-  readonly description: ReactNode;
-  readonly confirmLabel: string;
-  readonly pendingLabel: string;
-  readonly onConfirm: () => Promise<void>;
-  readonly onCancel: () => void;
+    readonly title: string;
+    readonly description: ReactNode;
+    readonly confirmLabel: string;
+    readonly pendingLabel?: string;
+    readonly onConfirm: () => Promise<void> | void;
+    readonly onCancel: () => void;
 }
 
 export default function ConfirmDestructiveDialog({
-  title,
-  description,
-  confirmLabel,
-  pendingLabel,
-  onConfirm,
-  onCancel,
+    title,
+    description,
+    confirmLabel,
+    pendingLabel = "Working...",
+    onConfirm,
+    onCancel,
 }: ConfirmDestructiveDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const [isPending, setIsPending] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isPending, setIsPending] = useState(false);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
+    useEffect(() => {
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === "Escape" && !isPending) {
+                onCancel();
+            }
+        }
 
-    // Native dialogs give us focus trapping and Escape/backdrop behavior for free.
-    dialog.showModal();
+        globalThis.addEventListener("keydown", handleKeyDown);
 
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  }, []);
+        return () => {
+            globalThis.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [isPending, onCancel]);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
+    async function handleConfirm() {
+        if (isPending) return;
 
-    function handleCancel(event: Event) {
-      // Block dismissal while the destructive request is still running.
-      event.preventDefault();
-      if (!isPending) onCancel();
+        setIsPending(true);
+
+        try {
+            await onConfirm();
+        } finally {
+            setIsPending(false);
+        }
     }
 
-    dialog.addEventListener("cancel", handleCancel);
-    return () => dialog.removeEventListener("cancel", handleCancel);
-  }, [isPending, onCancel]);
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6"
+            onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !isPending) {
+                    onCancel();
+                }
+            }}
+        >
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="confirm-dialog-title"
+                className="w-full max-w-md border border-border bg-card p-6 text-card-foreground shadow-xl"
+            >
+                <div className="space-y-3">
+                    <h2 id="confirm-dialog-title" className="text-lg font-semibold">
+                        {title}
+                    </h2>
 
-  async function handleConfirm() {
-    setIsPending(true);
-    setErrorMessage(null);
+                    <div className="text-sm leading-6 text-muted-foreground">
+                        {description}
+                    </div>
+                </div>
 
-    try {
-      // Callers only provide the mutation; this wrapper owns shared modal UX.
-      await onConfirm();
-    } catch (error) {
-      setErrorMessage(parseErrorMessage(error));
-      setIsPending(false);
-    }
-  }
+                <div className="mt-6 flex flex-wrap justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={isPending}
+                        onClick={onCancel}
+                    >
+                        Cancel
+                    </Button>
 
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={titleId}
-      aria-busy={isPending}
-      className="m-auto w-full max-w-md border border-border bg-card px-6 py-6 shadow-lg backdrop:bg-black/50 sm:px-8 sm:py-8"
-    >
-      <h2
-        id={titleId}
-        className="text-lg font-semibold tracking-[-0.03em] text-foreground"
-      >
-        {title}
-      </h2>
-
-      <div className="mt-3 text-sm leading-6 text-muted-foreground">
-        {description}
-      </div>
-
-      {errorMessage && (
-        <div className="mt-4">
-          <ErrorAlert message={errorMessage} />
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={isPending}
+                        onClick={handleConfirm}
+                    >
+                        {isPending ? pendingLabel : confirmLabel}
+                    </Button>
+                </div>
+            </div>
         </div>
-      )}
-
-      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button
-          autoFocus
-          type="button"
-          variant="outline"
-          disabled={isPending}
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={isPending}
-          onClick={handleConfirm}
-        >
-          {isPending ? pendingLabel : confirmLabel}
-        </Button>
-      </div>
-    </dialog>
-  );
+    );
 }
