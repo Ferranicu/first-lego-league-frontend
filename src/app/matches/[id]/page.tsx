@@ -270,7 +270,7 @@ export default async function MatchDetailPage(props: Readonly<MatchDetailPagePro
         >
             {matchError && <ErrorAlert message={matchError} />}
 
-            {!matchError && match && isAdmin(currentUser) && (
+            {!matchError && match && isAdmin(currentUser) && isEditionActive(edition?.state) && (
                 <div className="flex flex-wrap justify-end gap-3">
                     <Link href={`/matches/${id}/edit`} className={buttonVariants({ variant: "secondary" })}>
                         <Pencil aria-hidden="true" />
