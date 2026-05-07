@@ -36,9 +36,9 @@ export default function AwardSection({ awards }: Readonly<{ awards: AwardItem[] 
                     50%  { background-position: 100% 50%; }
                     100% { background-position: 0% 50%; }
                 }
-                @keyframes confetti-rise {
+                @keyframes confetti-fall {
                     0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
-                    100% { transform: translateY(-120px) rotate(600deg); opacity: 0; }
+                    100% { transform: translateY(120px) rotate(600deg); opacity: 0; }
                 }
                 @keyframes champion-pulse {
                     0%, 100% { opacity: 1; }
@@ -62,12 +62,12 @@ export default function AwardSection({ awards }: Readonly<{ awards: AwardItem[] 
                             className="pointer-events-none absolute rounded-sm"
                             style={{
                                 left: `${p.left}%`,
-                                bottom: 0,
+                                top: 0,
                                 zIndex: 0,
                                 width: p.width,
                                 height: p.height,
                                 backgroundColor: p.color,
-                                animation: `confetti-rise ${p.duration}s ${p.delay}s ease-in-out infinite`,
+                                animation: `confetti-fall ${p.duration}s ${p.delay}s ease-in-out infinite`,
                             }}
                         />
                     ))}
