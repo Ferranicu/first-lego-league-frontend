@@ -12,7 +12,7 @@ import { getEncodedResourceId } from "@/lib/halRoute";
 import { isAdmin } from "@/lib/authz";
 import { NotFoundError, parseErrorMessage } from "@/types/errors";
 import type { ProjectRoom } from "@/types/projectRoom";
-import { mergeHal, mergeHalArray } from "@/api/halClient";
+import { fetchHalCollection, fetchHalResource, mergeHal, mergeHalArray } from "@/api/halClient";
 import type { Volunteer } from "@/types/volunteer";
 import type { ScientificProject } from "@/types/scientificProject";
 import type { User } from "@/types/user";
@@ -36,6 +36,50 @@ function toJudgeSnapshot(volunteer: Volunteer): JudgeSnapshot {
         emailAddress: volunteer.emailAddress,
         phoneNumber: volunteer.phoneNumber,
     };
+}
+
+async function resolveManagedJudge(room: ProjectRoom): Promise<Volunteer | null> {
+    const embeddedJudge = room.embedded("managedByJudge");
+    if (embeddedJudge) {
+        return mergeHal<Volunteer>(embeddedJudge);
+    }
+
+    const judgeHref = room.link("managedByJudge")?.href;
+    if (!judgeHref) {
+        return null;
+    }
+
+    try {
+        return await fetchHalResource<Volunteer>(judgeHref, serverAuthProvider);
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            console.warn("Managed judge not found for room:", room.roomNumber ?? room.uri ?? judgeHref);
+            return null;
+        }
+        throw error;
+    }
+}
+
+async function resolvePanelists(room: ProjectRoom): Promise<Volunteer[]> {
+    const embeddedPanelists = room.embeddedArray("panelists");
+    if (embeddedPanelists && embeddedPanelists.length > 0) {
+        return mergeHalArray<Volunteer>(embeddedPanelists);
+    }
+
+    const panelistsHref = room.link("panelists")?.href;
+    if (!panelistsHref) {
+        return [];
+    }
+
+    try {
+        return await fetchHalCollection<Volunteer>(panelistsHref, serverAuthProvider, "judges");
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            console.warn("Panelists collection not found for room:", room.roomNumber ?? room.uri ?? panelistsHref);
+            return [];
+        }
+        throw error;
+    }
 }
 
 export default async function ProjectRoomDetailPage(props: Readonly<ProjectRoomDetailPageProps>) {
@@ -66,13 +110,27 @@ export default async function ProjectRoomDetailPage(props: Readonly<ProjectRoomD
 
     const isAdminUser = isAdmin(currentUser);
 
-    const judge = room?.embedded("managedByJudge")
-        ? toJudgeSnapshot(mergeHal<Volunteer>(room.embedded("managedByJudge")))
-        : null;
+    let judge: JudgeSnapshot | null = null;
+    let panelists: JudgeSnapshot[] = [];
 
-    const panelists = room?.embeddedArray("panelists")
-        ? mergeHalArray<Volunteer>(room.embeddedArray("panelists")).map(toJudgeSnapshot)
-        : [];
+    if (room) {
+        const [judgeResult, panelistsResult] = await Promise.allSettled([
+            resolveManagedJudge(room),
+            resolvePanelists(room),
+        ]);
+
+        if (judgeResult.status === "fulfilled" && judgeResult.value) {
+            judge = toJudgeSnapshot(judgeResult.value);
+        } else if (judgeResult.status === "rejected") {
+            console.error("Failed to fetch managing judge:", judgeResult.reason);
+        }
+
+        if (panelistsResult.status === "fulfilled") {
+            panelists = panelistsResult.value.map(toJudgeSnapshot);
+        } else {
+            console.error("Failed to fetch panelists:", panelistsResult.reason);
+        }
+    }
 
     const scientificProjects = room?.embeddedArray("scientificProjects")
         ? mergeHalArray<ScientificProject>(room.embeddedArray("scientificProjects"))
