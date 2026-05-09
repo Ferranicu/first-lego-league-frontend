@@ -22,9 +22,11 @@ const FavoritesContext = createContext<FavoritesContextValue | undefined>(undefi
 const FAVORITES_CHANGE_EVENT = "fll:favorites-change";
 
 export function FavoritesProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-    const [favorites, setFavorites] = useState<FavoriteItem[]>(() => loadFavorites());
+    const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
     useEffect(() => {
+        setFavorites(loadFavorites());
+
         function handleStorage() {
             setFavorites(loadFavorites());
         }

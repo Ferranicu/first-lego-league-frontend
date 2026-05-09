@@ -19,6 +19,30 @@ export type CreateMatchPayload = {
     referee: string;
 };
 
+export interface MatchSearchItemResponse {
+    readonly matchId: string;
+    readonly startTime: string;
+    readonly endTime: string;
+    readonly tableId: string;
+    readonly roundId: number;
+}
+
+export interface MatchSearchPageResponse {
+    readonly page: number;
+    readonly size: number;
+    readonly totalElements: number;
+    readonly items: MatchSearchItemResponse[];
+}
+
+export interface MatchFilterParams {
+    readonly startTime?: string;
+    readonly endTime?: string;
+    readonly tableId?: string;
+    readonly roundId?: string;
+    readonly page?: number;
+    readonly size?: number;
+}
+
 function getSafeMatchResultResourcePath(resourceUri: string) {
     let resourcePath = resourceUri;
 
@@ -69,6 +93,45 @@ export class MatchesService {
             this.authStrategy,
             "matches",
         );
+    }
+
+    async getMatchesFiltered(filters: MatchFilterParams): Promise<MatchSearchPageResponse> {
+        const params = new URLSearchParams();
+
+        if (filters.startTime) params.set("startTime", filters.startTime);
+        if (filters.endTime) params.set("endTime", filters.endTime);
+        if (filters.tableId) params.set("tableId", filters.tableId);
+        if (filters.roundId) params.set("roundId", String(filters.roundId));
+        if (filters.page !== undefined) params.set("page", String(filters.page));
+        if (filters.size !== undefined) params.set("size", String(filters.size));
+
+        const auth = await this.authStrategy.getAuth();
+        const query = params.toString();
+        const response = await fetch(`${API_BASE_URL}/matches/filter${query ? `?${query}` : ""}`, {
+            headers: {
+                Accept: "application/json",
+                ...(auth ? { Authorization: auth } : {}),
+            },
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            let message = `HTTP ${response.status}`;
+
+            try {
+                const data = await response.json() as { message?: string; error?: string; detail?: string };
+                message = data.message ?? data.error ?? data.detail ?? message;
+            } catch {
+                const text = await response.text().catch(() => "");
+                if (text.trim()) {
+                    message = text;
+                }
+            }
+
+            throw new ApiError(message, response.status, true);
+        }
+
+        return response.json() as Promise<MatchSearchPageResponse>;
     }
 
     async getMatchById(id: string): Promise<Match> {

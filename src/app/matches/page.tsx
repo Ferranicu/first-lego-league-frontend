@@ -1,11 +1,10 @@
 import { EditionsService } from "@/api/editionApi";
-import { MatchesService } from "@/api/matchesApi";
+import { MatchesService, type MatchSearchItemResponse } from "@/api/matchesApi";
 import { fetchHalResource } from "@/api/halClient";
 import { UsersService } from "@/api/userApi";
 import { buttonVariants } from "@/app/components/button";
 import EmptyState from "@/app/components/empty-state";
 import ErrorAlert from "@/app/components/error-alert";
-import { Input } from "@/app/components/input";
 import PageShell from "@/app/components/page-shell";
 import PaginationControls from "@/app/components/pagination-controls";
 import { serverAuthProvider } from "@/lib/authProvider";
@@ -19,6 +18,8 @@ import { Match } from "@/types/match";
 import type { HalPage } from "@/types/pagination";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
+import type { CompetitionTable } from "@/types/competitionTable";
+import type { Round } from "@/types/round";
 import type { LucideIcon } from "lucide-react";
 import {
     ArrowUpRight,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { MatchesTimeline } from "./matches-timeline";
+import MatchesFilterBar from "./matches-filter-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,11 @@ type MatchesSearchState = {
     teamQuery: string;
     normalizedTeamQuery: string;
     hasTeamFilter: boolean;
+    startTime?: string;
+    endTime?: string;
+    tableId?: string;
+    roundId?: string;
+    hasScheduleFilters: boolean;
 };
 
 type MatchStats = {
@@ -85,6 +92,11 @@ function compareMatchTimes(left: string = "", right: string = "") {
 
 function getSearchValue(value: string | string[] | undefined) {
     return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function getOptionalSearchValue(value: string | string[] | undefined) {
+    const resolved = getSearchValue(value).trim();
+    return resolved.length > 0 ? resolved : undefined;
 }
 
 function isResourceReference(value: string | null | undefined) {
@@ -274,65 +286,6 @@ function getMatchStats(matches: Match[]): MatchStats {
     };
 }
 
-function MatchesTeamFilter({
-    query,
-    year,
-    view,
-}: Readonly<{
-    query: string;
-    year?: string;
-    view?: string;
-}>) {
-    const resetParams = new URLSearchParams();
-    if (year) resetParams.set("year", year);
-    if (view === "calendar") resetParams.set("view", view);
-    const resetHref = resetParams.toString() ? `/matches?${resetParams.toString()}` : "/matches";
-
-    return (
-        <form action="/matches" className="matches-page-search-form">
-            {year ? <input type="hidden" name="year" value={year} /> : null}
-            {view === "calendar" ? <input type="hidden" name="view" value={view} /> : null}
-
-            <div className="min-w-0 space-y-2">
-                <label htmlFor="team-search" className="text-sm font-medium text-foreground">
-                    Team filter
-                </label>
-                <Input
-                    id="team-search"
-                    name="team"
-                    type="search"
-                    defaultValue={query}
-                    placeholder="Search by team name..."
-                    autoComplete="off"
-                />
-            </div>
-
-            <div className="matches-page-search-actions">
-                <button
-                    type="submit"
-                    className={cn(
-                        buttonVariants({ variant: "secondary", size: "default" }),
-                        "matches-page-search-button",
-                    )}
-                >
-                    Search
-                </button>
-                {query ? (
-                    <Link
-                        href={resetHref}
-                        className={cn(
-                            buttonVariants({ variant: "ghost", size: "default" }),
-                            "matches-page-reset-button",
-                        )}
-                    >
-                        Reset
-                    </Link>
-                ) : null}
-            </div>
-        </form>
-    );
-}
-
 function StatCard({
     icon: Icon,
     label,
@@ -494,6 +447,11 @@ function getMatchesSearchState(params: Record<string, string | string[] | undefi
     const teamQuery = getSearchValue(params.team);
     const normalizedTeamQuery = normalizeTeamSearch(teamQuery);
     const hasTeamFilter = normalizedTeamQuery.length > 0;
+    const startTime = getOptionalSearchValue(params.startTime);
+    const endTime = getOptionalSearchValue(params.endTime);
+    const tableId = getOptionalSearchValue(params.tableId);
+    const roundId = getOptionalSearchValue(params.roundId);
+    const hasScheduleFilters = Boolean(startTime || endTime || tableId || roundId);
 
     return {
         year,
@@ -504,6 +462,11 @@ function getMatchesSearchState(params: Record<string, string | string[] | undefi
         teamQuery,
         normalizedTeamQuery,
         hasTeamFilter,
+        startTime,
+        endTime,
+        tableId,
+        roundId,
+        hasScheduleFilters,
     };
 }
 
@@ -518,10 +481,45 @@ async function getCurrentUser() {
 
 async function getMatchesForView(
     service: MatchesService,
-    { year, hasTeamFilter, urlPage }: Pick<MatchesSearchState, "year" | "hasTeamFilter" | "urlPage">,
+    { year, hasTeamFilter, hasScheduleFilters, urlPage, startTime, endTime, tableId, roundId }:
+        Pick<MatchesSearchState, "year" | "hasTeamFilter" | "hasScheduleFilters" | "urlPage" | "startTime" | "endTime" | "tableId" | "roundId">,
 ) {
     let editionId: string | null = null;
     let result: HalPage<Match> = emptyMatchesPage;
+
+    if (hasScheduleFilters) {
+        const page = urlPage - 1;
+        const response = await service.getMatchesFiltered({
+            startTime,
+            endTime,
+            tableId,
+            roundId,
+            page,
+            size: PAGE_SIZE,
+        });
+        const matches = await Promise.all(
+            response.items.map(async (item: MatchSearchItemResponse) => {
+                try {
+                    return await service.getMatchById(item.matchId);
+                } catch (error) {
+                    console.error(`Failed to fetch filtered match ${item.matchId}:`, error);
+                    return null;
+                }
+            })
+        );
+        const filteredMatches = matches.filter((match): match is Match => match !== null);
+
+        return {
+            matches: filteredMatches,
+            result: {
+                items: filteredMatches,
+                currentPage: response.page,
+                hasPrev: response.page > 0,
+                hasNext: (response.page + 1) * response.size < response.totalElements,
+            },
+            editionId,
+        };
+    }
 
     if (year) {
         const editionsService = new EditionsService(serverAuthProvider);
@@ -623,6 +621,8 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
     let result: HalPage<Match> = emptyMatchesPage;
     let error: string | null = null;
     let editionId: string | null = null;
+    let competitionTables: CompetitionTable[] = [];
+    let rounds: Round[] = [];
 
     const currentUser: User | null = await getCurrentUser();
 
@@ -639,10 +639,32 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
         error = getFriendlyMatchesError(fetchError);
     }
 
+    try {
+        const service = new MatchesService(serverAuthProvider);
+        const [tablesResult, roundsResult] = await Promise.allSettled([
+            service.getCompetitionTables(),
+            service.getRounds(),
+        ]);
+
+        if (tablesResult.status === "fulfilled") {
+            competitionTables = tablesResult.value;
+        }
+
+        if (roundsResult.status === "fulfilled") {
+            rounds = roundsResult.value;
+        }
+    } catch (fetchError) {
+        console.error("Failed to load filter options:", fetchError);
+    }
+
     function buildViewUrl(newView: string) {
         const urlParams = new URLSearchParams();
         if (year) urlParams.set("year", year);
         if (teamQuery) urlParams.set("team", teamQuery);
+        if (searchState.startTime) urlParams.set("startTime", searchState.startTime);
+        if (searchState.endTime) urlParams.set("endTime", searchState.endTime);
+        if (searchState.tableId) urlParams.set("tableId", searchState.tableId);
+        if (searchState.roundId) urlParams.set("roundId", searchState.roundId);
         if (newView === "calendar") urlParams.set("view", "calendar");
         if (urlPage > 1 && newView !== "calendar") urlParams.set("page", String(urlPage));
         const qs = urlParams.toString();
@@ -698,7 +720,7 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                         <div className="page-eyebrow">Live Listing</div>
                         <h2 className="section-title">Match schedule</h2>
 
-                        {year || teamQuery || isCalendarView ? (
+                        {year || teamQuery || searchState.hasScheduleFilters || isCalendarView ? (
                             <div className="matches-page-filter-chips">
                                 {year ? (
                                     <span className="matches-page-filter-chip">
@@ -710,6 +732,26 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                                         Team: {teamQuery}
                                     </span>
                                 ) : null}
+                                {searchState.startTime ? (
+                                    <span className="matches-page-filter-chip">
+                                        Start: {searchState.startTime.replace("T", " ")}
+                                    </span>
+                                ) : null}
+                                {searchState.endTime ? (
+                                    <span className="matches-page-filter-chip">
+                                        End: {searchState.endTime.replace("T", " ")}
+                                    </span>
+                                ) : null}
+                                {searchState.tableId ? (
+                                    <span className="matches-page-filter-chip">
+                                        Table: {searchState.tableId}
+                                    </span>
+                                ) : null}
+                                {searchState.roundId ? (
+                                    <span className="matches-page-filter-chip">
+                                        Round: {searchState.roundId}
+                                    </span>
+                                ) : null}
                                 <span className="matches-page-filter-chip">
                                     {isCalendarView ? "Calendar view" : "List view"}
                                 </span>
@@ -718,12 +760,6 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                     </div>
 
                     <div className="matches-page-controls">
-                        {!error ? (
-                            <div className="matches-page-search">
-                                <MatchesTeamFilter query={teamQuery} year={year} view={view} />
-                            </div>
-                        ) : null}
-
                         <div className="matches-page-utility-panel">
                             <div className="matches-page-view-toggle" aria-label="View options">
                                 <Link
@@ -747,13 +783,29 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                             <p className="matches-page-controls-note">
                                 {isCalendarView
                                     ? "Calendar view groups matches by competition table."
-                                    : hasTeamFilter
+                                    : searchState.hasScheduleFilters
+                                      ? "Use the filters below to narrow matches by time, table, or round."
+                                      : hasTeamFilter
                                       ? "Team filtering searches the full match directory and narrows the current slate."
                                       : `Showing page ${urlPage} of the published schedule.`}
                             </p>
                         </div>
                     </div>
                 </section>
+
+                {!error ? (
+                    <MatchesFilterBar
+                        year={year}
+                        view={view}
+                        teamQuery={teamQuery}
+                        startTime={searchState.startTime}
+                        endTime={searchState.endTime}
+                        tableId={searchState.tableId}
+                        roundId={searchState.roundId}
+                        competitionTables={competitionTables}
+                        rounds={rounds}
+                    />
+                ) : null}
 
                 {error ? <ErrorAlert message={error} /> : null}
 
@@ -764,7 +816,7 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                             label="Matches in view"
                             value={String(totalCount)}
                             description={
-                                hasTeamFilter || year
+                                searchState.hasScheduleFilters || hasTeamFilter || year
                                     ? "This count reflects the active filters and seasonal context."
                                     : "A live page from the rolling match schedule."
                             }
@@ -797,9 +849,17 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                 {!error && matches.length === 0 ? (
                     <EmptyState
                         className="matches-page-empty-state"
-                        title={hasTeamFilter ? "No matches found for this team" : "No matches available"}
+                        title={
+                            searchState.hasScheduleFilters
+                                ? "No matches found for these filters"
+                                : hasTeamFilter
+                                    ? "No matches found for this team"
+                                    : "No matches available"
+                        }
                         description={
-                            hasTeamFilter
+                            searchState.hasScheduleFilters
+                                ? "Try adjusting the time, table, or round filters, or clear them to see more matches."
+                                : hasTeamFilter
                                 ? "Try another team name or clear the filter."
                                 : "There are no scheduled matches yet."
                         }
@@ -847,7 +907,7 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                             </ul>
                         )}
 
-                        {!year && !isCalendarView && !hasTeamFilter ? (
+                        {!isCalendarView && (searchState.hasScheduleFilters || (!year && !hasTeamFilter)) ? (
                             <div className="matches-page-pagination">
                                 <PaginationControls
                                     currentPage={urlPage}
@@ -856,6 +916,15 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
                                     basePath="/matches"
                                     variant="editorial"
                                     contextLabel="Move through the published match schedule page by page."
+                                    queryParams={{
+                                        year,
+                                        team: teamQuery || undefined,
+                                        startTime: searchState.startTime,
+                                        endTime: searchState.endTime,
+                                        tableId: searchState.tableId,
+                                        roundId: searchState.roundId,
+                                        view: isCalendarView ? "calendar" : undefined,
+                                    }}
                                 />
                             </div>
                         ) : null}
