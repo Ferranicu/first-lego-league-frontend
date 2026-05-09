@@ -3,6 +3,7 @@ import { EditionsService } from "@/api/editionApi";
 import { LeaderboardService } from "@/api/leaderboardApi";
 import { MediaService } from "@/api/mediaApi";
 import { UsersService } from "@/api/userApi";
+import FavoriteActionButton from "@/app/components/favorite-action-button";
 import { buttonVariants } from "@/app/components/button";
 import EmptyState from "@/app/components/empty-state";
 import ErrorAlert from "@/app/components/error-alert";
@@ -134,6 +135,7 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
     const editionsService = new EditionsService(serverAuthProvider);
     const awardsService = new AwardsService(serverAuthProvider);
     const mediaService = new MediaService(serverAuthProvider);
+    const favoriteEditionLabel = getEditionTitle(edition, id);
 
     let currentUser: User | null = null;
     let edition: Edition | null = null;
@@ -245,6 +247,16 @@ export default async function EditionDetailPage(props: Readonly<EditionDetailPag
                                     {edition.description}
                                 </p>
                             )}
+                        </div>
+
+                        <div className="mb-3">
+                            <FavoriteActionButton
+                                type="edition"
+                                id={String(id)}
+                                label={favoriteEditionLabel}
+                                href={`/editions/${id}`}
+                                secondaryLabel={edition?.venueName ?? undefined}
+                            />
                         </div>
 
                         {currentUser && isAdmin(currentUser) && !isEditionFinished(edition?.state) && (

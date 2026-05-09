@@ -1,4 +1,5 @@
 import { AuthProvider } from "@/app/components/authentication";
+import { FavoritesProvider } from "@/app/components/favorites-provider";
 import Footer from "@/app/components/footer";
 import Navbar from "@/app/components/navbar";
 import type { Metadata } from "next";
@@ -27,15 +28,17 @@ export default function RootLayout({
                     }}
                 />
                 <AuthProvider>
-                    <div className="flex min-h-screen flex-col">
-                        <Suspense fallback={null}>
-                            <Navbar />
-                        </Suspense>
+                    <FavoritesProvider>
+                        <div className="flex min-h-screen flex-col">
+                            <Suspense fallback={null}>
+                                <Navbar />
+                            </Suspense>
 
-                        <main className="flex-1">{children}</main>
+                            <main className="flex-1">{children}</main>
 
-                        <Footer />
-                    </div>
+                            <Footer />
+                        </div>
+                    </FavoritesProvider>
                 </AuthProvider>
             </body>
         </html>

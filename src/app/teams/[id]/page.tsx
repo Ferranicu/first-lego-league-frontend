@@ -5,6 +5,7 @@ import { ScientificProjectsService } from "@/api/scientificProjectApi";
 import { TeamsService } from "@/api/teamApi";
 import { UsersService } from "@/api/userApi";
 import { Breadcrumb } from "@/app/components/breadcrumb";
+import FavoriteActionButton from "@/app/components/favorite-action-button";
 import EmptyState from "@/app/components/empty-state";
 import ErrorAlert from "@/app/components/error-alert";
 import TeamEditSection from "@/app/components/team-edit-section";
@@ -262,6 +263,7 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
 
     const initialMembers = members.map(toTeamMemberSnapshot);
     const awardSnapshots = awards.map(toAwardSnapshot);
+    const favoriteTeamLabel = teamDisplayName ?? team.id ?? "Team";
 
     const membersKey = initialMembers
         .map((member) => member.uri ?? String(member.id ?? member.name ?? ""))
@@ -318,7 +320,16 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
                         <h1 className="text-2xl font-semibold text-foreground">
                             {teamDisplayName ?? "Unnamed team"}
                         </h1>
-                        <TeamShareButton teamName={teamDisplayName ?? "Unnamed team"} />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <TeamShareButton teamName={teamDisplayName ?? "Unnamed team"} />
+                            <FavoriteActionButton
+                                type="team"
+                                id={String(id)}
+                                label={favoriteTeamLabel}
+                                href={`/teams/${id}`}
+                                secondaryLabel={team.city ?? editionYearStr}
+                            />
+                        </div>
                     </div>
 
                     <div className="mb-6 space-y-1 text-sm text-muted-foreground">

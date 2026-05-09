@@ -30,6 +30,13 @@ export class CompetitionTableService {
         );
     }
 
+    async getTableById(tableId: string): Promise<CompetitionTable> {
+        return fetchHalResource<CompetitionTable>(
+            `/competitionTables/${encodeURIComponent(tableId)}`,
+            this.authStrategy
+        );
+    }
+
     async deleteTable(tableId: string): Promise<void> {
         await deleteHal(`/competitionTables/${encodeURIComponent(tableId)}`, this.authStrategy);
     }
