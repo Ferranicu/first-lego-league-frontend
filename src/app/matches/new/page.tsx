@@ -1,4 +1,5 @@
-import { MatchesService } from "@/api/matchesApi";
+import { CompetitionTableService } from "@/api/competitionTableApi";
+import { RoundsService } from "@/api/roundsApi";
 import { TeamsService } from "@/api/teamApi";
 import { UsersService } from "@/api/userApi";
 import ErrorAlert from "@/app/components/error-alert";
@@ -124,14 +125,15 @@ export default async function NewMatchPage() {
 
     if (!error) {
         try {
-            const matchesService = new MatchesService(serverAuthProvider);
+            const roundsService = new RoundsService(serverAuthProvider);
+            const competitionTableService = new CompetitionTableService(serverAuthProvider);
             const teamsService = new TeamsService(serverAuthProvider);
             const editionsService = new EditionsService(serverAuthProvider);
 
             const [rounds, competitionTables, referees, teams, editions] = await Promise.all([
-                matchesService.getRounds(),
-                matchesService.getCompetitionTables(),
-                matchesService.getReferees(),
+                roundsService.getRounds(),
+                competitionTableService.getTables(),
+                competitionTableService.getReferees(),
                 teamsService.getTeams(),
                 editionsService.getEditions(),
             ]);

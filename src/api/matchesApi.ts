@@ -1,11 +1,9 @@
 import type { AuthStrategy } from "@/lib/authProvider";
-import { CompetitionTable } from "@/types/competitionTable";
 import { ApiError } from "@/types/errors";
 import { Match } from "@/types/match";
 import {MatchResult,MatchResultEntity,RegisterMatchScoreRequest, RegisterMatchScoreResponse,} from "@/types/matchResult";
 import type { HalPage } from "@/types/pagination";
 import { Referee } from "@/types/referee";
-import { Round } from "@/types/round";
 import { Team } from "@/types/team";
 import {API_BASE_URL,createHalResource,deleteHal,fetchHalCollection,fetchHalPagedCollection,fetchHalResource,patchHal,postHal,} from "./halClient";
 
@@ -182,30 +180,6 @@ export class MatchesService {
     async getMatchReferee(id: string): Promise<Referee> {
         const matchId = encodeURIComponent(id);
         return fetchHalResource<Referee>(`/matches/${matchId}/referee`, this.authStrategy);
-    }
-
-    async getRounds(): Promise<Round[]> {
-        return fetchHalCollection<Round>(
-            "/rounds?sort=number,asc&size=1000",
-            this.authStrategy,
-            "rounds",
-        );
-    }
-
-    async getCompetitionTables(): Promise<CompetitionTable[]> {
-        return fetchHalCollection<CompetitionTable>(
-            "/competitionTables?size=1000",
-            this.authStrategy,
-            "competitionTables",
-        );
-    }
-
-    async getReferees(): Promise<Referee[]> {
-        return fetchHalCollection<Referee>(
-            "/referees?sort=name,asc&size=1000",
-            this.authStrategy,
-            "referees",
-        );
     }
 
     async createMatch(data: CreateMatchPayload): Promise<Match> {

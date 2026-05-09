@@ -1,6 +1,8 @@
 import { EditionsService } from "@/api/editionApi";
+import { CompetitionTableService } from "@/api/competitionTableApi";
 import { MatchesService, type MatchSearchItemResponse } from "@/api/matchesApi";
 import { fetchHalResource } from "@/api/halClient";
+import { RoundsService } from "@/api/roundsApi";
 import { UsersService } from "@/api/userApi";
 import { buttonVariants } from "@/app/components/button";
 import EmptyState from "@/app/components/empty-state";
@@ -750,10 +752,11 @@ export default async function MatchesPage({ searchParams }: Readonly<{ searchPar
     }
 
     try {
-        const service = new MatchesService(serverAuthProvider);
+        const tableService = new CompetitionTableService(serverAuthProvider);
+        const roundsService = new RoundsService(serverAuthProvider);
         const [tablesResult, roundsResult] = await Promise.allSettled([
-            service.getCompetitionTables(),
-            service.getRounds(),
+            tableService.getTables(),
+            roundsService.getRounds(),
         ]);
 
         if (tablesResult.status === "fulfilled") {
