@@ -21,6 +21,7 @@ import type { HalPage } from "@/types/pagination";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
 import type { CompetitionTable } from "@/types/competitionTable";
+import type { Round } from "@/types/round";
 import type { LucideIcon } from "lucide-react";
 import {
     ArrowUpRight,
