@@ -107,8 +107,13 @@ export class MatchesService {
 
         const auth = await this.authStrategy.getAuth();
         const query = params.toString();
-        const querySuffix = query ? `?${query}` : "";
-        const response = await fetch(`${API_BASE_URL}/matches/filter${querySuffix}`, {
+        const filterUrl = new URL("/matches/filter", API_BASE_URL);
+
+        if (query) {
+            filterUrl.search = query;
+        }
+
+        const response = await fetch(filterUrl.toString(), {
             headers: {
                 Accept: "application/json",
                 ...(auth ? { Authorization: auth } : {}),
