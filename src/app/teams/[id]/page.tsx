@@ -101,7 +101,7 @@ function getOpponentName(teamA: Team | null, teamB: Team | null, targetId: strin
     return undefined;
 }
 
-async function resolveMatchForTeam(match: Match, targetId: string, matchesService: MatchesService) {
+async function resolveMatchForTeam(match: Match, targetId: string) {
     const matchId = match.uri ? match.uri.split("/").pop() : String(match.id);
 
     if (!matchId) {
@@ -230,7 +230,7 @@ export default async function TeamDetailPage(props: Readonly<TeamDetailPageProps
 
         if (matchesResult.status === "fulfilled") {
             const resolvedMatches = await Promise.all(
-                matchesResult.value.map((match) => resolveMatchForTeam(match, String(id), matchesService))
+                matchesResult.value.map((match) => resolveMatchForTeam(match, String(id)))
             );
 
             teamMatchesData = resolvedMatches

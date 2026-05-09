@@ -21,7 +21,6 @@ import type { HalPage } from "@/types/pagination";
 import { Team } from "@/types/team";
 import { User } from "@/types/user";
 import type { CompetitionTable } from "@/types/competitionTable";
-import type { Round } from "@/types/round";
 import type { LucideIcon } from "lucide-react";
 import {
     ArrowUpRight,
@@ -131,14 +130,6 @@ function formatEnumLabel(value: string) {
         .filter(Boolean)
         .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
         .join(" ");
-}
-
-function getRoundOptionLabel(round: Round) {
-    if (round.number !== undefined) {
-        return `Round ${round.number}`;
-    }
-
-    return `Round ${round.uri ?? ""}`;
 }
 
 function getMatchTone(state: string | null | undefined): MatchCardTone {

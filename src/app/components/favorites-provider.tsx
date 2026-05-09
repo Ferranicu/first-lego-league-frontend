@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import {
     FavoriteItem,
     isFavorite,
@@ -21,28 +21,30 @@ type FavoritesContextValue = {
 const FavoritesContext = createContext<FavoritesContextValue | undefined>(undefined);
 const FAVORITES_CHANGE_EVENT = "fll:favorites-change";
 
+function subscribeToFavoritesChange(onStoreChange: () => void) {
+    function handleStorage() {
+        onStoreChange();
+    }
+
+    function handleFavoritesChange() {
+        onStoreChange();
+    }
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(FAVORITES_CHANGE_EVENT, handleFavoritesChange as EventListener);
+
+    return () => {
+        window.removeEventListener("storage", handleStorage);
+        window.removeEventListener(FAVORITES_CHANGE_EVENT, handleFavoritesChange as EventListener);
+    };
+}
+
 export function FavoritesProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-    const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-
-    useEffect(() => {
-        setFavorites(loadFavorites());
-
-        function handleStorage() {
-            setFavorites(loadFavorites());
-        }
-
-        function handleFavoritesChange() {
-            setFavorites(loadFavorites());
-        }
-
-        window.addEventListener("storage", handleStorage);
-        window.addEventListener(FAVORITES_CHANGE_EVENT, handleFavoritesChange as EventListener);
-
-        return () => {
-            window.removeEventListener("storage", handleStorage);
-            window.removeEventListener(FAVORITES_CHANGE_EVENT, handleFavoritesChange as EventListener);
-        };
-    }, []);
+    const favorites = useSyncExternalStore(
+        subscribeToFavoritesChange,
+        loadFavorites,
+        () => [],
+    );
 
     function persist(nextFavorites: FavoriteItem[]) {
         setFavorites(nextFavorites);

@@ -17,7 +17,6 @@ import { redirect } from "next/navigation";
 import NewMatchForm from "./form";
 import { EditionsService } from "@/api/editionApi";
 import { isEditionActive } from "@/lib/editionStateGuards";
-import { Edition } from "@/types/edition";
 
 type Option = {
     label: string;
